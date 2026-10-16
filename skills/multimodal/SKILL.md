@@ -18,7 +18,7 @@ The multimodal MCP server exposes media models configured by the user. A tool ex
 
 Tools save results to files and return their paths. By default files go to a dated cache directory outside the project. When the result belongs to the project, pass an absolute `output_path` inside the workspace, or copy the file there afterwards. Tell the user where each result is.
 
-Input files (images to edit, audio to transcribe, video references) must be absolute paths. On MiniMax and Ark models, `generate_video` frames and references may also be public URLs or the provider's asset URIs (`asset://ID`, `mm_file://ID`); Ark reference videos must be one of these.
+Input files (images to edit, audio to transcribe, video references) must be absolute paths, or URLs and asset URIs where the tool's model notes allow them.
 
 ## Images
 
@@ -43,6 +43,6 @@ Write prompts as a concrete description of the final image:
 
 `generate_video` submits a job and returns its ID. Poll `get_video_job` with the same `model` until `status` is `completed` or `failed`; the completed call downloads the video and returns its path. Generation can take minutes, so wait between polls.
 
-`first_frame` and `last_frame` pin the opening and closing image; pass the same path to both for a loop. `reference_images`, `reference_videos` and `reference_audios` supply subjects, style, motion or sound the video should follow without appearing as literal frames. Within each list, the Nth item is the Nth of its type when the prompt refers to references. Most models accept frames or references in one request but not both; the server reports it when a model refuses.
+`first_frame` and `last_frame` pin the opening and closing image; pass the same path to both for a loop. `reference_images`, `reference_videos` and `reference_audios` supply subjects, style, motion or sound the video should follow without appearing as literal frames. Within each list, the Nth item is the Nth of its type when the prompt refers to references.
 
-Model-specific request fields go in `options`. MiniMax-H3 on vLLM-Omni takes them under `extra_params`, and its text-to-video needs `aspect_ratio` (for example `16:9`).
+Model-specific request fields go in `options`.

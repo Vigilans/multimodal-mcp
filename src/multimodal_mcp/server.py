@@ -1,4 +1,7 @@
+import inspect
 import json
+import re
+import tomllib
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any, Literal
@@ -10,6 +13,10 @@ from .config import Category, Config
 from .endpoints import connect
 
 CACHE_DIR = Path.home() / ".cache" / "multimodal-mcp"
+# Interface rules that tool descriptions show for matching models; the file's header describes its layout.
+CATALOG = tomllib.loads((Path(__file__).parent / "catalog.toml").read_text(encoding="utf-8"))
+# A trailing date version: -YYMMDD on Ark, -YYYY-MM-DD on OpenAI snapshots.
+DATE = re.compile(r"-(\d{6}|\d{4}-\d{2}-\d{2})$")
 
 OutputPath = Annotated[
     str | None,
@@ -41,6 +48,27 @@ def _output(category: str, alias: str, suffix: str, output_path: str | None, ind
         path = CACHE_DIR / f"{now:%Y-%m-%d}" / category / f"{name}.{suffix}"
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def _catalog_name(model: str) -> str:
+    """Catalog names compare case-insensitively, after the last "/" of a repo ID or path."""
+    return model.rsplit("/", 1)[-1].lower()
+
+
+def _rules(endpoint: str, model: str, category: str, tool: str) -> list[str]:
+    """The catalog's rules for a tool on this model: the endpoint's, then the model's, each by category, then by tool."""
+    name = _catalog_name(model)
+    names = {name, DATE.sub("", name)}
+    table = CATALOG.get(endpoint, {})
+    entry = next(
+        (
+            entry
+            for key, entry in table.get("models", {}).items()
+            if names & {_catalog_name(alias) for alias in (key, *entry.get("aliases", []))}
+        ),
+        {},
+    )
+    return [rule for scope in (table, entry) for key in (category, tool) for rule in scope.get(key, [])]
 
 
 def build(config: Config) -> FastMCP:
@@ -81,6 +109,21 @@ def build(config: Config) -> FastMCP:
             Field(description="Model alias from list_models. Omit to use the only capable model or the category default."),
         ]
 
+    def model_tool(category: str, aliases: list[str]) -> Any:
+        """Register a tool whose description ends with the catalog's notes for the models in its enum."""
+
+        def register(fn: Any) -> Any:
+            lines = []
+            for alias in aliases:
+                model = config.models[category][alias]
+                rules = _rules(config.providers[model.provider].endpoint, model.model, category, fn.__name__)
+                if rules:
+                    lines.append(f"- {alias}: {' '.join(rules)}")
+            notes = "\n\nModel notes:\n" + "\n".join(lines) if lines else ""
+            return mcp.tool(fn, description=inspect.getdoc(fn) + notes)
+
+        return register
+
     @mcp.tool
     def list_models(category: Category | None = None, capability: str | None = None) -> dict:
         """List the configured media models with their capabilities, and each category's default model."""
@@ -106,7 +149,7 @@ def build(config: Config) -> FastMCP:
     if aliases := offering("image", "generate"):
         ImageModel = model_param(aliases)
 
-        @mcp.tool
+        @model_tool("image", aliases)
         async def generate_image(
             prompt: str,
             model: ImageModel = None,
@@ -129,7 +172,7 @@ def build(config: Config) -> FastMCP:
     if aliases := offering("image", "edit"):
         EditModel = model_param(aliases)
 
-        @mcp.tool
+        @model_tool("image", aliases)
         async def edit_image(
             prompt: str,
             images: Annotated[list[str], Field(description="Absolute paths of the source and reference images.")],
@@ -150,7 +193,7 @@ def build(config: Config) -> FastMCP:
     if aliases := offering("asr", "text"):
         AsrModel = model_param(aliases)
 
-        @mcp.tool
+        @model_tool("asr", aliases)
         async def transcribe_audio(
             file: AudioFile,
             model: AsrModel = None,
@@ -179,7 +222,7 @@ def build(config: Config) -> FastMCP:
     if aliases := offering("asr", "segment", "word"):
         TimestampModel = model_param(aliases)
 
-        @mcp.tool
+        @model_tool("asr", aliases)
         async def transcribe_audio_with_timestamps(
             file: AudioFile,
             granularity: Literal["segment", "word"] = "segment",
@@ -224,7 +267,7 @@ def build(config: Config) -> FastMCP:
     if aliases := offering("tts", "voice", "reference"):
         TtsModel = model_param(aliases)
 
-        @mcp.tool
+        @model_tool("tts", aliases)
         async def generate_speech(
             input: str,
             model: TtsModel = None,
@@ -269,7 +312,7 @@ def build(config: Config) -> FastMCP:
     if aliases := offering("tts", "design"):
         DesignModel = model_param(aliases)
 
-        @mcp.tool
+        @model_tool("tts", aliases)
         async def voice_design(
             description: Annotated[str, Field(description="The voice to create: age, gender, accent, timbre, manner.")],
             model: DesignModel = None,
@@ -291,7 +334,7 @@ def build(config: Config) -> FastMCP:
     if aliases := list(config.models.get("video", {})):
         VideoModel = model_param(aliases)
 
-        @mcp.tool
+        @model_tool("video", aliases)
         async def generate_video(
             prompt: str,
             model: VideoModel = None,
