@@ -56,15 +56,18 @@ class Endpoint:
         }
 
     async def synthesize(self, model, text, *, voice, reference_audio, instructions, response_format, speed, timestamps, options):
+        # Request mp3 explicitly: vLLM-Omni defaults to WAV, OpenAI to mp3.
+        fmt = response_format or "mp3"
         raw = await self.client.audio.speech.with_raw_response.create(
             model=model,
             input=text,
             voice=voice or omit,
+            response_format=fmt,
             # vLLM-Omni takes the reference audio as a data URI in ref_audio.
             extra_body=given(ref_audio=reference_audio and data_uri(reference_audio)[0]) | (options or {}),
-            **given(instructions=instructions, response_format=response_format, speed=speed),
+            **given(instructions=instructions, speed=speed),
         )
-        return raw.content, response_format or "mp3", None
+        return raw.content, fmt, None
 
     async def generate_video(self, model, prompt, *, first_frame, last_frame, images, videos, audios, aspect_ratio, size, resolution, seconds, options):
         fields: dict[str, Any] = given(model=model, prompt=prompt, aspect_ratio=aspect_ratio, size=size, seconds=seconds)
