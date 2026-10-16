@@ -22,6 +22,12 @@ def given(**kwargs: Any) -> dict[str, Any]:
     return {key: value for key, value in kwargs.items() if value is not None}
 
 
+def unsupported(api: str, **params: Any) -> None:
+    """Reject arguments the adapter has no request field for."""
+    if names := [name for name, value in params.items() if value]:
+        raise ValueError(f"{api} does not support {', '.join(names)}")
+
+
 def merge(base: dict[str, Any], extra: dict[str, Any] | None) -> dict[str, Any]:
     """Deep-merge endpoint-specific options into a request body."""
     result = dict(base)

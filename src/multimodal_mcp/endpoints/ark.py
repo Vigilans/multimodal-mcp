@@ -14,7 +14,16 @@ import uuid
 import httpx
 import websockets
 
-from . import check, data_uri, download, given, media_content, merge, read_file
+from . import (
+    check,
+    data_uri,
+    download,
+    given,
+    media_content,
+    merge,
+    read_file,
+    unsupported,
+)
 
 MEDIA_URL = "https://ark.cn-beijing.volces.com/api/v3"
 SPEECH_URL = "https://openspeech.bytedance.com/api/v3"
@@ -67,6 +76,7 @@ class Endpoint:
         }
 
     async def generate_image(self, model, prompt, *, images, mask, size, quality, options):
+        unsupported("Ark image generation", mask=mask, quality=quality)
         body = {"model": model, "prompt": prompt, "response_format": "b64_json"} | given(
             size=size, image=images and [data_uri(image)[0] for image in images]
         )
@@ -81,6 +91,7 @@ class Endpoint:
         return outputs
 
     async def transcribe(self, model, file, *, timestamps, speakers, language, prompt, hotwords, options):
+        unsupported("Ark ASR", speakers=speakers, language=language, prompt=prompt, hotwords=hotwords)
         read_file(file)
         ffmpeg = await asyncio.create_subprocess_exec(
             "ffmpeg", "-v", "error", "-i", file, "-f", "s16le", "-ac", "1", "-ar", "16000", "-",
@@ -130,6 +141,7 @@ class Endpoint:
         return json.dumps(result, ensure_ascii=False), normalized
 
     async def synthesize(self, model, text, *, voice, reference_audio, instructions, response_format, speed, timestamps, options):
+        unsupported("Ark TTS", reference_audio=reference_audio)
         fmt = response_format or "mp3"
         params = {"text": text, "speaker": voice, "audio_params": {"format": fmt}}
         if speed is not None:
@@ -176,6 +188,8 @@ class Endpoint:
         return bytes(audio), fmt, subtitles
 
     async def generate_video(self, model, prompt, *, first_frame, last_frame, images, videos, audios, aspect_ratio, size, resolution, seconds, options):
+        if size:
+            raise ValueError("Ark video generation does not support size; use aspect_ratio and resolution")
         body = {
             "model": model,
             "content": [{"type": "text", "text": prompt}, *media_content(first_frame, last_frame, images, videos, audios)],

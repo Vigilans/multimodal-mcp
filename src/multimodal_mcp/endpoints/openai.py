@@ -6,7 +6,7 @@ from typing import Any
 
 from openai import AsyncOpenAI, omit
 
-from . import data_uri, download, given, merge, read_file
+from . import data_uri, download, given, merge, read_file, unsupported
 
 STATUS = {"queued": "queued", "in_progress": "running", "completed": "completed", "failed": "failed"}
 
@@ -56,6 +56,7 @@ class Endpoint:
         }
 
     async def synthesize(self, model, text, *, voice, reference_audio, instructions, response_format, speed, timestamps, options):
+        unsupported("OpenAI-compatible speech", timestamps=timestamps)
         # Request mp3 explicitly: vLLM-Omni defaults to WAV, OpenAI to mp3.
         fmt = response_format or "mp3"
         raw = await self.client.audio.speech.with_raw_response.create(
@@ -70,6 +71,8 @@ class Endpoint:
         return raw.content, fmt, None
 
     async def generate_video(self, model, prompt, *, first_frame, last_frame, images, videos, audios, aspect_ratio, size, resolution, seconds, options):
+        if resolution:
+            raise ValueError("OpenAI-compatible video generation does not support resolution; pass size as WIDTHxHEIGHT")
         fields: dict[str, Any] = given(model=model, prompt=prompt, aspect_ratio=aspect_ratio, size=size, seconds=seconds)
         # vLLM-Omni's MiniMax-H3 picks the branch from extra_params: fl2va places frames by index, ref2va takes
         # the references; files go in order, images before videos before audio.

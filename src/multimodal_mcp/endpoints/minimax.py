@@ -5,7 +5,16 @@ import json
 
 import httpx
 
-from . import check, data_uri, download, given, media_content, merge, read_file
+from . import (
+    check,
+    data_uri,
+    download,
+    given,
+    media_content,
+    merge,
+    read_file,
+    unsupported,
+)
 
 BASE_URL = "https://api.minimaxi.com"
 STATUS = {"queued": "queued", "running": "running", "succeeded": "completed", "failed": "failed", "cancelled": "failed"}
@@ -25,6 +34,7 @@ class Endpoint:
         return result
 
     async def generate_image(self, model, prompt, *, images, mask, size, quality, options):
+        unsupported("MiniMax image generation", mask=mask, quality=quality)
         body = {"model": model, "prompt": prompt, "response_format": "base64"}
         if size and ":" in size:
             body["aspect_ratio"] = size
@@ -37,6 +47,7 @@ class Endpoint:
         return [(base64.b64decode(image), "jpeg") for image in result["data"]["image_base64"]]
 
     async def transcribe(self, model, file, *, timestamps, speakers, language, prompt, hotwords, options):
+        unsupported("MiniMax ASR", prompt=prompt, hotwords=hotwords)
         name, data, mime = read_file(file)
         # verbose_json carries timestamps and speaker labels; json carries only the text.
         fields = {"model": model, "response_format": "verbose_json" if timestamps else "json"}
@@ -64,6 +75,11 @@ class Endpoint:
         }
 
     async def synthesize(self, model, text, *, voice, reference_audio, instructions, response_format, speed, timestamps, options):
+        unsupported("MiniMax TTS", reference_audio=reference_audio)
+        if instructions:
+            raise ValueError(
+                'MiniMax TTS does not support instructions; set an emotion in options {"voice_setting": {"emotion": ...}}'
+            )
         fmt = response_format or "mp3"
         body = {
             "model": model,
@@ -98,6 +114,8 @@ class Endpoint:
         return result["voice_id"], bytes.fromhex(result["trial_audio"]), "mp3"
 
     async def generate_video(self, model, prompt, *, first_frame, last_frame, images, videos, audios, aspect_ratio, size, resolution, seconds, options):
+        if size:
+            raise ValueError("MiniMax video generation does not support size; use aspect_ratio and resolution")
         body = {
             "model": model,
             "content": [{"type": "text", "text": prompt}, *media_content(first_frame, last_frame, images, videos, audios)],

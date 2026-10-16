@@ -5,7 +5,7 @@ import json
 
 import httpx
 
-from . import check, given, merge, read_file, suffix
+from . import check, given, merge, read_file, suffix, unsupported
 
 BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 STATUS = {"in_progress": "running", "completed": "completed", "failed": "failed", "cancelled": "failed"}
@@ -44,6 +44,7 @@ class Endpoint:
         return check(await self.http.post("/interactions", json=merge(body, options))).json()
 
     async def generate_image(self, model, prompt, *, images, mask, size, quality, options):
+        unsupported("Gemini image generation", mask=mask, quality=quality)
         body = {"model": model, "input": [{"type": "text", "text": prompt}, *(_inline(image) for image in images or [])]}
         if size:
             body["response_format"] = {"type": "image"} | ({"aspect_ratio": size} if ":" in size else {"image_size": size})
@@ -56,6 +57,7 @@ class Endpoint:
         return outputs
 
     async def transcribe(self, model, file, *, timestamps, speakers, language, prompt, hotwords, options):
+        unsupported("Gemini transcription", prompt=prompt)
         if timestamps == "segment":
             raise ValueError("Gemini transcription returns word timestamps only")
         if hotwords and (timestamps or speakers):
@@ -84,6 +86,9 @@ class Endpoint:
         return json.dumps(interaction, ensure_ascii=False), {"text": text, "segments": [], "words": words}
 
     async def synthesize(self, model, text, *, voice, reference_audio, instructions, response_format, speed, timestamps, options):
+        unsupported("Gemini TTS", reference_audio=reference_audio, timestamps=timestamps)
+        if speed is not None:
+            raise ValueError("Gemini TTS does not support speed; ask for the pace in instructions")
         content = {"type": "text", "text": text}
         if instructions:
             content["annotations"] = [{"type": "speech_metadata", "style": instructions}]
@@ -99,12 +104,17 @@ class Endpoint:
     async def design_voice(self, model, description, *, preview_text, voice_id):
         if voice_id:
             raise ValueError("Gemini assigns voice IDs itself")
-        # The preview is generated from the description; Gemini takes no preview text.
+        if preview_text:
+            raise ValueError("Gemini generates the preview from the description; omit preview_text")
         voice = {"model": model, "type": "prompted", "display_name": description[:64], "prompted": {"input": description}}
         result = check(await self.http.post("/voices", json={"store": True, "voice": voice})).json()
         return result["id"], base64.b64decode(result["sample_audio"]["data"]), "wav"
 
     async def generate_video(self, model, prompt, *, first_frame, last_frame, images, videos, audios, aspect_ratio, size, resolution, seconds, options):
+        if size:
+            raise ValueError("Gemini video generation does not support size; use aspect_ratio and resolution")
+        if seconds:
+            raise ValueError("Gemini video generation does not support seconds; set timing in the prompt")
         # Omni binds media to roles through a declaration before the prompt: @ImageN / @VideoN count that type
         # in input order from 1, <IMAGE_REF_N> / <VIDEO_REF_N> count references from 0.
         frame_images = list(dict.fromkeys(path for path in (first_frame, last_frame) if path))
