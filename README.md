@@ -67,16 +67,15 @@ model = "MiniMax-H3"
 description = "Video with synchronized audio; text, first/last frame, or reference driven"
 capabilities = ["text", "frames"]
 
-[[models.tts]]
+[[models.tts]]                # capabilities from the API notes
 provider = "gemini"
 model = "gemini-3.8-flash-tts"
-capabilities = ["voice", "design"]
 
 [defaults]                    # optional, per category
 image = "gpt-image-2.5-flare"
 ```
 
-Every model lists its `capabilities`; the server treats anything unlisted as unsupported. Tools, `list_models` and `defaults` name a model by its `model` value, or by `<provider>/<model>` when several entries share that value, such as `gateway/gpt-image-2.5-flare` beside `openai/gpt-image-2.5-flare`.
+A model without `capabilities` takes the list that [api-notes.toml](src/multimodal_mcp/catalog/api-notes.toml) gives for its endpoint and model ID, and the config fails to load when the API notes have none; the server treats anything unlisted as unsupported. Tools, `list_models` and `defaults` name a model by its `model` value, or by `<provider>/<model>` when several entries share that value, such as `gateway/gpt-image-2.5-flare` beside `openai/gpt-image-2.5-flare`.
 
 ## Endpoints
 

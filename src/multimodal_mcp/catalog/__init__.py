@@ -1,4 +1,4 @@
-"""Model data looked up by endpoint and model ID: API notes in api-notes.toml."""
+"""Model data looked up by endpoint and model ID: API notes and default capabilities in api-notes.toml."""
 
 import re
 

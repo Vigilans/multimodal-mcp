@@ -6,6 +6,8 @@ from typing import Literal
 
 from pydantic import BaseModel, model_validator
 
+from .catalog.api_notes import model_entry
+
 Category = Literal["image", "asr", "tts", "video"]
 
 CAPABILITIES: dict[str, set[str]] = {
@@ -39,7 +41,8 @@ class Model(BaseModel):
     provider: str
     model: str
     description: str = ""
-    capabilities: list[str]
+    # Omitted: the model's capabilities in the API notes for its endpoint.
+    capabilities: list[str] | None = None
 
 
 class Config(BaseModel):
@@ -65,6 +68,14 @@ class Config(BaseModel):
             for index, model in enumerate(models):
                 if model.provider not in self.providers:
                     raise ValueError(f"models.{category}[{index}].provider: unknown provider {model.provider!r}")
+                if model.capabilities is None:
+                    endpoint = self.providers[model.provider].endpoint
+                    model.capabilities = model_entry(endpoint, model.model).get("capabilities")
+                    if model.capabilities is None:
+                        raise ValueError(
+                            f"models.{category}[{index}]: the API notes give no {endpoint} capabilities for "
+                            f"{model.model!r}; set capabilities"
+                        )
                 unknown = set(model.capabilities) - CAPABILITIES[category]
                 if unknown:
                     raise ValueError(f"models.{category}[{index}].capabilities: unknown {sorted(unknown)}")
