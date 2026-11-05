@@ -1,4 +1,5 @@
-"""Model data looked up by endpoint and model ID: API notes and default capabilities in api-notes.toml."""
+"""Model data looked up by endpoint and model ID: API notes and default capabilities in api-notes.toml, prompt guides
+in prompt-guides.toml. Each file's header states its scope; data of another kind goes in a file of its own."""
 
 import re
 

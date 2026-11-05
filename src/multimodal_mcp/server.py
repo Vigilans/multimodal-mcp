@@ -7,6 +7,7 @@ from fastmcp import FastMCP
 from pydantic import Field
 
 from .catalog import api_notes as notes
+from .catalog import prompt_guides as guides
 from .config import Category, Config
 from .endpoints import connect
 
@@ -128,14 +129,26 @@ def build(config: Config) -> FastMCP:
         }
 
     @mcp.tool
-    def get_model_guide(model: str, api_notes: bool = True) -> dict:
-        """Get a model's API notes; call it before using the model."""
+    async def get_model_guide(
+        model: str,
+        lang: Literal["zh", "en"],
+        update: bool = False,
+        api_notes: bool = True,
+        prompt_guide: bool = True,
+    ) -> dict:
+        """Get a model's API notes and its family's prompt guide; call it before using the model."""
         if model not in named:
             raise ValueError(f"unknown model {model!r}; models: {', '.join(named)}")
         category, item = named[model]
         result = listing(category, model, item)
         if api_notes:
             result["api_notes"] = model_notes(category, item)
+        family = guides.family(category, item.model)
+        if prompt_guide and family:
+            guide = guides.PROMPT_GUIDES[family]
+            result["prompt_guide"] = {"family": family, "notes": guide["notes"]}
+            if guide.get("files"):
+                result["prompt_guide"]["references"] = await guides.fetch(guide["files"], family, lang, update)
         return result
 
     def save_images(outputs: list[tuple[bytes, str]], name: str, output_path: str | None) -> dict:
