@@ -209,7 +209,7 @@ capabilities = ["text", "segment", "word"]  # openai-python 3.28.0 src/openai/re
 asr = [
   "Files up to 25 MB in flac, mp3, mp4, mpeg, mpga, m4a, ogg, wav or webm.",  # https://developers.openai.com/api/docs/guides/speech-to-text §File transcription; openai-python 3.28.0 src/openai/resources/audio/transcriptions.py Transcriptions.create §file
   "language: an ISO-639-1 code such as en.",  # openai-python 3.28.0 src/openai/resources/audio/transcriptions.py Transcriptions.create §language
-  "prompt: up to 224 tokens.",  # https://developers.openai.com/api/docs/guides/speech-to-text §Prompting; openai-python 3.28.0 src/openai/resources/audio/transcriptions.py Transcriptions.create §prompt
+  "prompt: up to 224 tokens of sample text, such as the preceding transcript or correctly spelled names, whose spelling, punctuation and style the transcript follows.",  # https://developers.openai.com/api/docs/guides/speech-to-text §Prompting; openai-python 3.28.0 src/openai/resources/audio/transcriptions.py Transcriptions.create §prompt
 ]
 
 # Self-hosted models served by vLLM or vLLM-Omni.
