@@ -1,7 +1,5 @@
 import inspect
 import json
-import re
-import tomllib
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any, Literal
@@ -9,14 +7,11 @@ from typing import Annotated, Any, Literal
 from fastmcp import FastMCP
 from pydantic import Field
 
+from .catalog import api_notes as notes
 from .config import Category, Config
 from .endpoints import connect
 
 CACHE_DIR = Path.home() / ".cache" / "multimodal-mcp"
-# Interface rules that tool descriptions show for matching models; the file's header describes its layout.
-CATALOG = tomllib.loads((Path(__file__).parent / "catalog.toml").read_text(encoding="utf-8"))
-# A trailing date version: -YYMMDD on Ark, -YYYY-MM-DD on OpenAI snapshots.
-DATE = re.compile(r"-(\d{6}|\d{4}-\d{2}-\d{2})$")
 
 OutputPath = Annotated[
     str | None,
@@ -48,27 +43,6 @@ def _output(category: str, name: str, suffix: str, output_path: str | None, inde
         path = CACHE_DIR / f"{now:%Y-%m-%d}" / category / f"{stem}.{suffix}"
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
-
-
-def _catalog_name(model: str) -> str:
-    """Catalog names compare case-insensitively, after the last "/" of a repo ID or path."""
-    return model.rsplit("/", 1)[-1].lower()
-
-
-def _rules(endpoint: str, model: str, category: str, tool: str) -> list[str]:
-    """The catalog's rules for a tool on this model: the endpoint's, then the model's, each by category, then by tool."""
-    name = _catalog_name(model)
-    names = {name, DATE.sub("", name)}
-    table = CATALOG.get(endpoint, {})
-    entry = next(
-        (
-            entry
-            for key, entry in table.get("models", {}).items()
-            if names & {_catalog_name(alias) for alias in (key, *entry.get("aliases", []))}
-        ),
-        {},
-    )
-    return [rule for scope in (table, entry) for key in (category, tool) for rule in scope.get(key, [])]
 
 
 def build(config: Config) -> FastMCP:
@@ -122,11 +96,11 @@ def build(config: Config) -> FastMCP:
             lines = []
             for name in names:
                 model = models[category][name]
-                rules = _rules(config.providers[model.provider].endpoint, model.model, category, fn.__name__)
+                rules = notes.rules(config.providers[model.provider].endpoint, model.model, category, fn.__name__)
                 if rules:
                     lines.append(f"- {name}: {' '.join(rules)}")
-            notes = "\n\nModel notes:\n" + "\n".join(lines) if lines else ""
-            return mcp.tool(fn, description=inspect.getdoc(fn) + notes)
+            suffix = "\n\nModel notes:\n" + "\n".join(lines) if lines else ""
+            return mcp.tool(fn, description=inspect.getdoc(fn) + suffix)
 
         return register
 
