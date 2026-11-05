@@ -47,8 +47,12 @@ ImageSize = Annotated[
     str | None,
     Field(description="WIDTHxHEIGHT, an aspect ratio such as 16:9, or a size tier such as 2K, as the model supports."),
 ]
+Quality = Annotated[str | None, Field(description="Rendering quality, for models that take one; the API notes list the values.")]
 AudioFile = Annotated[str, Field(description="Absolute path of the audio file.")]
-Frame = Annotated[str | None, Field(description="Image the video must start or end on: an absolute path, or a URL or asset URI where the model's API accepts one.")]
+Language = Annotated[
+    str | None,
+    Field(description="Language of the speech, in the format the API notes give, such as en or en-US. Omit it to let the model detect the language."),
+]
 Hotwords = Annotated[list[str] | None, Field(description="Names and terms the recognizer should favor.")]
 
 
@@ -140,7 +144,12 @@ def build(config: Config) -> FastMCP:
         }
 
     @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": False})
-    def list_models(category: Category | None = None, capability: str | None = None) -> dict:
+    def list_models(
+        category: Annotated[Category | None, Field(description="Only models of this category.")] = None,
+        capability: Annotated[
+            str | None, Field(description="Only models with this capability, such as edit, word, design or frames.")
+        ] = None,
+    ) -> dict:
         """List the configured media models and the category defaults, for choosing a model.
 
         Each model has its name to pass as model, which is the provider's model ID, or <provider>/<model ID> when
@@ -162,11 +171,21 @@ def build(config: Config) -> FastMCP:
 
     @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
     async def get_model_guide(
-        model: str,
-        lang: Literal["zh", "en"],
-        update: bool = False,
-        api_notes: bool = True,
-        prompt_guide: bool = True,
+        model: Annotated[str, Field(description="Model name, as list_models and the tools' model parameters give it.")],
+        lang: Annotated[
+            Literal["zh", "en"],
+            Field(description="zh when the conversation is mainly in Chinese, else en; selects the edition of references published in both."),
+        ],
+        update: Annotated[
+            bool, Field(description="Download the reference files again; a failed download keeps the existing file.")
+        ] = False,
+        api_notes: Annotated[
+            bool, Field(description="Include the model's API notes. Turn off only while they are still in your context.")
+        ] = True,
+        prompt_guide: Annotated[
+            bool,
+            Field(description="Include the family's prompt guide and fetch its files. Turn off when the same family's guide is still in your context."),
+        ] = True,
     ) -> dict:
         """Get a model's API notes and its family's prompt guide; call it before using the model.
 
@@ -210,7 +229,7 @@ def build(config: Config) -> FastMCP:
                 Field(description="Absolute paths of images whose subject or style the new image should follow."),
             ] = None,
             size: ImageSize = None,
-            quality: str | None = None,
+            quality: Quality = None,
             options: Options = None,
             output_path: OutputPath = None,
         ) -> dict:
@@ -232,11 +251,16 @@ def build(config: Config) -> FastMCP:
         @mcp.tool(annotations=PROVIDER_API_ANNOTATIONS)
         async def edit_image(
             prompt: str,
-            images: Annotated[list[str], Field(description="Absolute paths of the source and reference images.")],
+            images: Annotated[
+                list[str],
+                Field(description="Absolute paths: the image to change first, then any images to take objects, people or style from."),
+            ],
             model: EditModel = None,
-            mask: Annotated[str | None, Field(description="Absolute path of a PNG mask.")] = None,
+            mask: Annotated[
+                str | None, Field(description="Absolute path of a PNG mask over the first image; the API notes give its format.")
+            ] = None,
             size: ImageSize = None,
-            quality: str | None = None,
+            quality: Quality = None,
             options: Options = None,
             output_path: OutputPath = None,
         ) -> dict:
@@ -259,7 +283,7 @@ def build(config: Config) -> FastMCP:
         async def transcribe_audio(
             file: AudioFile,
             model: AsrModel = None,
-            language: str | None = None,
+            language: Language = None,
             prompt: str | None = None,
             hotwords: Hotwords = None,
             options: Options = None,
@@ -292,10 +316,13 @@ def build(config: Config) -> FastMCP:
         @mcp.tool(annotations=PROVIDER_API_ANNOTATIONS)
         async def transcribe_audio_with_timestamps(
             file: AudioFile,
-            granularity: Literal["segment", "word"] = "segment",
+            granularity: Annotated[
+                Literal["segment", "word"],
+                Field(description="segment for phrase timings such as subtitles; word for per-word timings such as alignment or cutting."),
+            ] = "segment",
             speakers: Annotated[bool, Field(description="Label each segment or word with its speaker.")] = False,
             model: TimestampModel = None,
-            language: str | None = None,
+            language: Language = None,
             prompt: str | None = None,
             hotwords: Hotwords = None,
             options: Options = None,
@@ -417,8 +444,13 @@ def build(config: Config) -> FastMCP:
         async def generate_video(
             prompt: str,
             model: VideoModel = None,
-            first_frame: Frame = None,
-            last_frame: Frame = None,
+            first_frame: Annotated[
+                str | None,
+                Field(description="Image the video opens on: an absolute path, or a URL or asset URI where the model's API accepts one."),
+            ] = None,
+            last_frame: Annotated[
+                str | None, Field(description="Image the video ends on, in the same forms as first_frame.")
+            ] = None,
             reference_images: Annotated[
                 list[str] | None,
                 Field(description="Images whose subjects, objects or style the video should follow."),
@@ -432,9 +464,11 @@ def build(config: Config) -> FastMCP:
                 Field(description="Audio whose voice, music or sound the video should follow."),
             ] = None,
             aspect_ratio: Annotated[str | None, Field(description="Such as 16:9.")] = None,
-            size: Annotated[str | None, Field(description="WIDTHxHEIGHT.")] = None,
+            size: Annotated[
+                str | None, Field(description="WIDTHxHEIGHT, for models that take a pixel size instead of aspect_ratio and resolution.")
+            ] = None,
             resolution: Annotated[str | None, Field(description="Resolution tier, such as 720p.")] = None,
-            seconds: str | None = None,
+            seconds: Annotated[str | None, Field(description="Duration in seconds, such as 5, within the model's range.")] = None,
             options: Options = None,
         ) -> dict:
             """Submit a video generation job and return without waiting for the video.
@@ -469,7 +503,7 @@ def build(config: Config) -> FastMCP:
         @mcp.tool(annotations=PROVIDER_API_ANNOTATIONS | {"idempotentHint": True})
         async def get_video_job(
             model: Annotated[Literal[tuple(names)], Field(description="The model the job was submitted to.")],
-            video_id: str,
+            video_id: Annotated[str, Field(description="The id that generate_video returned.")],
             output_path: OutputPath = None,
         ) -> dict:
             """Check a job from generate_video and download the video once it is done.
