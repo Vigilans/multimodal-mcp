@@ -105,11 +105,15 @@ def build(config: Config) -> FastMCP:
         model = models[category][name]
         return endpoints[model.provider], model.model, name
 
-    def model_param(names: list[str]) -> Any:
-        return Annotated[
-            Literal[tuple(names)] | None,
-            Field(description="Model from list_models. Omit to use the only capable model or the category default."),
-        ]
+    def model_param(category: str, names: list[str]) -> Any:
+        default = config.defaults.get(category)
+        if len(names) == 1:
+            omitted = f"Omit to use {names[0]}."
+        elif default in names:
+            omitted = f"Omit to use {default}, unless the call needs a capability that only another model has."
+        else:
+            omitted = "Omit only when one model alone can serve the call; otherwise name the model."
+        return Annotated[Literal[tuple(names)] | None, Field(description=f"Model from list_models. {omitted}")]
 
     # The tools of each category and the capabilities that put a model in each tool's enum (None: every model).
     tools = {
@@ -182,7 +186,7 @@ def build(config: Config) -> FastMCP:
         return {"model": name, "paths": paths}
 
     if names := offering("image", "generate"):
-        ImageModel = model_param(names)
+        ImageModel = model_param("image", names)
 
         @mcp.tool(annotations=PROVIDER_API_ANNOTATIONS)
         async def generate_image(
@@ -205,7 +209,7 @@ def build(config: Config) -> FastMCP:
             return save_images(outputs, name, output_path)
 
     if names := offering("image", "edit"):
-        EditModel = model_param(names)
+        EditModel = model_param("image", names)
 
         @mcp.tool(annotations=PROVIDER_API_ANNOTATIONS)
         async def edit_image(
@@ -226,7 +230,7 @@ def build(config: Config) -> FastMCP:
             return save_images(outputs, name, output_path)
 
     if names := offering("asr", "text"):
-        AsrModel = model_param(names)
+        AsrModel = model_param("asr", names)
 
         @mcp.tool(annotations=PROVIDER_API_ANNOTATIONS)
         async def transcribe_audio(
@@ -255,7 +259,7 @@ def build(config: Config) -> FastMCP:
             return {"model": name, "text": result["text"], "path": str(path)}
 
     if names := offering("asr", "segment", "word"):
-        TimestampModel = model_param(names)
+        TimestampModel = model_param("asr", names)
 
         @mcp.tool(annotations=PROVIDER_API_ANNOTATIONS)
         async def transcribe_audio_with_timestamps(
@@ -300,7 +304,7 @@ def build(config: Config) -> FastMCP:
             }
 
     if names := offering("tts", "voice", "reference"):
-        TtsModel = model_param(names)
+        TtsModel = model_param("tts", names)
 
         @mcp.tool(annotations=PROVIDER_API_ANNOTATIONS)
         async def generate_speech(
@@ -345,7 +349,7 @@ def build(config: Config) -> FastMCP:
             return result
 
     if names := offering("tts", "design"):
-        DesignModel = model_param(names)
+        DesignModel = model_param("tts", names)
 
         @mcp.tool(annotations=PROVIDER_API_ANNOTATIONS)
         async def voice_design(
@@ -367,7 +371,7 @@ def build(config: Config) -> FastMCP:
             return {"model": name, "voice_id": new_id, "preview_path": str(path)}
 
     if names := list(models.get("video", {})):
-        VideoModel = model_param(names)
+        VideoModel = model_param("video", names)
 
         @mcp.tool(annotations=PROVIDER_API_ANNOTATIONS)
         async def generate_video(
