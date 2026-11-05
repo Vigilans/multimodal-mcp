@@ -53,6 +53,10 @@ Language = Annotated[
     str | None,
     Field(description="Language of the speech, in the format the API notes give, such as en or en-US. Omit it to let the model detect the language."),
 ]
+AsrPrompt = Annotated[
+    str | None,
+    Field(description="Text that steers the recognizer, for models that take one; the API notes say how each model reads it."),
+]
 Hotwords = Annotated[list[str] | None, Field(description="Names and terms the recognizer should favor.")]
 
 
@@ -222,7 +226,10 @@ def build(config: Config) -> FastMCP:
 
         @mcp.tool(annotations=PROVIDER_API_ANNOTATIONS)
         async def generate_image(
-            prompt: str,
+            prompt: Annotated[
+                str,
+                Field(description="The image in full sentences: subject, setting, composition, lighting and style, with any text to render in quotes. Refer to references by position and role, with the labels of the model's prompt guide."),
+            ],
             model: ImageModel = None,
             references: Annotated[
                 list[str] | None,
@@ -250,7 +257,10 @@ def build(config: Config) -> FastMCP:
 
         @mcp.tool(annotations=PROVIDER_API_ANNOTATIONS)
         async def edit_image(
-            prompt: str,
+            prompt: Annotated[
+                str,
+                Field(description="What to change and what must stay unchanged, such as: replace only the sky with a sunset; keep the buildings, framing and lighting unchanged. Refer to images by position and role, with the labels of the model's prompt guide."),
+            ],
             images: Annotated[
                 list[str],
                 Field(description="Absolute paths: the image to change first, then any images to take objects, people or style from."),
@@ -284,7 +294,7 @@ def build(config: Config) -> FastMCP:
             file: AudioFile,
             model: AsrModel = None,
             language: Language = None,
-            prompt: str | None = None,
+            prompt: AsrPrompt = None,
             hotwords: Hotwords = None,
             options: Options = None,
             output_path: OutputPath = None,
@@ -323,7 +333,7 @@ def build(config: Config) -> FastMCP:
             speakers: Annotated[bool, Field(description="Label each segment or word with its speaker.")] = False,
             model: TimestampModel = None,
             language: Language = None,
-            prompt: str | None = None,
+            prompt: AsrPrompt = None,
             hotwords: Hotwords = None,
             options: Options = None,
             output_path: OutputPath = None,
@@ -365,7 +375,10 @@ def build(config: Config) -> FastMCP:
 
         @mcp.tool(annotations=PROVIDER_API_ANNOTATIONS)
         async def generate_speech(
-            input: str,
+            input: Annotated[
+                str,
+                Field(description="The exact words to speak. Spell out numbers, abbreviations and names where their reading matters, and add pause or sound tags only in the syntax of the model's prompt guide."),
+            ],
             model: TtsModel = None,
             voice: Annotated[str | None, Field(description="Preset or registered voice ID.")] = None,
             reference_audio: Annotated[
@@ -416,7 +429,10 @@ def build(config: Config) -> FastMCP:
 
         @mcp.tool(annotations=PROVIDER_API_ANNOTATIONS)
         async def voice_design(
-            description: Annotated[str, Field(description="The voice to create: age, gender, accent, timbre, manner.")],
+            description: Annotated[
+                str,
+                Field(description="Lasting traits of the voice in one or two sentences: age, gender, timbre, accent and baseline manner."),
+            ],
             model: DesignModel = None,
             preview_text: Annotated[
                 str | None, Field(description="Text spoken in the preview, for models that take one.")
@@ -442,7 +458,10 @@ def build(config: Config) -> FastMCP:
 
         @mcp.tool(annotations=PROVIDER_API_ANNOTATIONS)
         async def generate_video(
-            prompt: str,
+            prompt: Annotated[
+                str,
+                Field(description="The video in playback order: subjects, actions, setting, camera, lighting, style and sound. Several models expect their own structure or reference labels; follow the model's prompt guide."),
+            ],
             model: VideoModel = None,
             first_frame: Annotated[
                 str | None,
