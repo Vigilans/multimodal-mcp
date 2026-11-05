@@ -12,6 +12,26 @@ from .config import Category, Config
 from .endpoints import connect
 
 CACHE_DIR = Path.home() / ".cache" / "multimodal-mcp"
+# Hosts show the first line alone when they defer loading the server's tools.
+INSTRUCTIONS = """\
+Generate and edit images, transcribe audio, synthesize speech, design voices and generate videos with the media models \
+the user configured.
+
+- Settle the model before writing the prompt; to choose among models, call list_models(category=...).
+- Before calling a model, call get_model_guide for it once per context. It returns the model's API notes (accepted \
+values, input limits and options, which differ by model) and its family's prompt guide: notes on which sections of \
+the vendor's reference files to read, with the files' paths. Read only those sections before writing the prompt. \
+For another model of a family whose guide is still in your context, pass prompt_guide=false.
+- If a skill named multimodal is available, read it before writing prompts; it covers choosing models, writing \
+prompts and checking results.
+- Calls cost money or GPU time: produce what the user asked for, without variants they did not ask for.
+- When a call fails, report the error instead of switching models on your own; errors about the model choice list the \
+models that can serve the call.
+- Results are files. Tools save them under ~/.cache/multimodal-mcp unless output_path gives an absolute path, and \
+return the paths. Inputs are absolute file paths, or URLs and asset URIs where the API notes allow them.
+- Video generation is asynchronous: poll get_video_job with the id and model from generate_video, waiting between \
+checks, until the job completes or fails.
+"""
 
 OutputPath = Annotated[
     str | None,
@@ -46,7 +66,7 @@ def _output(category: str, name: str, suffix: str, output_path: str | None, inde
 
 
 def build(config: Config) -> FastMCP:
-    mcp = FastMCP("multimodal")
+    mcp = FastMCP("multimodal", instructions=INSTRUCTIONS)
     endpoints = {
         name: connect(provider.endpoint, provider.base_url, provider.key()) for name, provider in config.providers.items()
     }
