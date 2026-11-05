@@ -141,9 +141,15 @@ def build(config: Config) -> FastMCP:
 
     @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": False})
     def list_models(category: Category | None = None, capability: str | None = None) -> dict:
-        """List the configured media models with their capabilities, and each category's default model.
+        """List the configured media models and the category defaults, for choosing a model.
 
-        A model's name is its model ID, or <provider>/<model ID> when several providers serve the same model ID.
+        Each model has its name to pass as model, which is the provider's model ID, or <provider>/<model ID> when
+        several providers serve the same model ID; its category, the user's description and its capabilities.
+        Capabilities name the calls a model can serve: image generate, edit, reference (generate_image with references)
+        and mask; asr text, segment and word (timestamp granularities), speaker and hotwords; tts voice (preset or
+        registered voice IDs), reference (reference_audio), timestamps and design (voice_design); video text, frames
+        (first_frame or last_frame) and reference (reference media). It reads only the configuration; get_model_guide
+        gives a model's API notes and prompt guide.
         """
         return {
             "models": [
@@ -162,7 +168,14 @@ def build(config: Config) -> FastMCP:
         api_notes: bool = True,
         prompt_guide: bool = True,
     ) -> dict:
-        """Get a model's API notes and its family's prompt guide; call it before using the model."""
+        """Get a model's API notes and its family's prompt guide; call it before using the model.
+
+        API notes give accepted values, input limits, options and side effects such as billing, keyed by category (all
+        of its tools) or by tool. The prompt guide's notes say which sections of the vendor's reference files to read
+        for writing prompts and for fixing results, and how their terms map to the tool parameters, which with the API
+        notes take precedence over what the files say about parameters, tools and output. Each file comes with its
+        path, kind and status; missing files are downloaded first. A model without a family has no prompt_guide.
+        """
         if model not in named:
             raise ValueError(f"unknown model {model!r}; models: {', '.join(named)}")
         category, item = named[model]
@@ -201,7 +214,12 @@ def build(config: Config) -> FastMCP:
             options: Options = None,
             output_path: OutputPath = None,
         ) -> dict:
-            """Generate an image from a prompt and save it to a file."""
+            """Generate new images from a prompt and save them to files.
+
+            Use it for any new image, including one that follows the subject or style of images passed as references;
+            use edit_image to change an existing image while keeping the rest of it. Returns the model name and the
+            absolute paths of the saved images.
+            """
             endpoint, model_id, name = choose("image", model, {"generate"} | ({"reference"} if references else set()))
             outputs = await endpoint.generate_image(
                 model_id, prompt, images=references, mask=None, size=size, quality=quality, options=options
@@ -222,7 +240,12 @@ def build(config: Config) -> FastMCP:
             options: Options = None,
             output_path: OutputPath = None,
         ) -> dict:
-            """Edit images with a prompt and save the result to a file."""
+            """Edit an existing image according to a prompt and save the results to files.
+
+            Use it when an image should change while the rest of it stays as it is; to make a new image that only
+            borrows a subject or style, use generate_image with references. Returns the model name and the absolute
+            paths of the saved images.
+            """
             endpoint, model_id, name = choose("image", model, {"edit"} | ({"mask"} if mask else set()))
             outputs = await endpoint.generate_image(
                 model_id, prompt, images=images, mask=mask, size=size, quality=quality, options=options
@@ -242,7 +265,12 @@ def build(config: Config) -> FastMCP:
             options: Options = None,
             output_path: OutputPath = None,
         ) -> dict:
-            """Transcribe audio to text. Saves the provider response and returns the text."""
+            """Transcribe an audio file to text.
+
+            Use it when only the words matter; use transcribe_audio_with_timestamps for timings or speaker labels.
+            Saves the provider's response as a JSON file and returns the model name, the transcript text and the
+            file's path.
+            """
             endpoint, model_id, name = choose("asr", model, {"text"} | ({"hotwords"} if hotwords else set()))
             raw, result = await endpoint.transcribe(
                 model_id,
@@ -273,10 +301,12 @@ def build(config: Config) -> FastMCP:
             options: Options = None,
             output_path: OutputPath = None,
         ) -> dict:
-            """Transcribe audio with segment or word timestamps in seconds.
+            """Transcribe an audio file with segment or word timestamps in seconds, optionally labeling speakers.
 
-            Writes {text, duration, segments: [{start, end, text, speaker?}], words: [{start, end, word, speaker?}]}
-            to a JSON file and the provider response beside it; returns the text, both paths and the counts.
+            Use it for subtitles, alignment, cutting or speaker attribution; use transcribe_audio when only the text
+            matters. Writes {text, duration, segments: [{start, end, text, speaker?}], words: [{start, end, word,
+            speaker?}]} to a JSON file and the provider's response beside it; returns the text, both paths and the
+            segment and word counts. Read the JSON file for the timings.
             """
             needed = {granularity} | ({"speaker"} if speakers else set()) | ({"hotwords"} if hotwords else set())
             endpoint, model_id, name = choose("asr", model, needed)
@@ -323,7 +353,13 @@ def build(config: Config) -> FastMCP:
             options: Options = None,
             output_path: OutputPath = None,
         ) -> dict:
-            """Generate speech from text with a voice ID or a reference sample, and save it to an audio file."""
+            """Synthesize speech from text and save it to an audio file.
+
+            The voice is either voice, a preset or registered voice ID such as one from voice_design, or
+            reference_audio, a sample the model imitates for this request only. input is spoken verbatim, so it holds
+            only the words to say; set the delivery with instructions or inline tags as the model's prompt guide describes.
+            Returns the model name and the audio path, plus the path of a timestamps JSON file when timestamps is true.
+            """
             if not voice and not reference_audio:
                 raise ValueError("give voice or reference_audio")
             requested = {"voice": voice, "reference": reference_audio, "timestamps": timestamps}
@@ -361,7 +397,11 @@ def build(config: Config) -> FastMCP:
             voice_id: Annotated[str | None, Field(description="ID to assign, for models that let you choose it.")] = None,
             output_path: OutputPath = None,
         ) -> dict:
-            """Create a reusable voice from a description. Returns its voice ID and saves a preview clip."""
+            """Create a reusable voice from a description and save a preview clip.
+
+            Use it when no preset voice fits; afterwards pass the returned voice_id as voice to generate_speech, with a
+            model from the same provider. Returns the model name, the new voice ID and the preview's path.
+            """
             endpoint, model_id, name = choose("tts", model, {"design"})
             new_id, data, suffix = await endpoint.design_voice(
                 model_id, description, preview_text=preview_text, voice_id=voice_id
@@ -397,9 +437,13 @@ def build(config: Config) -> FastMCP:
             seconds: str | None = None,
             options: Options = None,
         ) -> dict:
-            """Submit a video generation job. Poll get_video_job with the returned model until it completes or fails.
+            """Submit a video generation job and return without waiting for the video.
 
-            Media inputs are absolute paths, or URLs and asset URIs (such as asset://ID) where the model's API accepts them.
+            The video can come from the prompt alone, open or close on first_frame and last_frame images, or follow
+            reference images, videos and audios for subjects, style, motion or sound; the API notes say which inputs
+            each model accepts and combines. Media inputs are absolute paths, or URLs and asset URIs (such as asset://ID)
+            where the model's API accepts them. Jobs usually take minutes: poll get_video_job with the returned id and
+            model until the job completes or fails. Returns the provider's job, including its id, and the model name.
             """
             needed = ({"frames"} if first_frame or last_frame else set()) | (
                 {"reference"} if reference_images or reference_videos or reference_audios else set()
@@ -428,7 +472,12 @@ def build(config: Config) -> FastMCP:
             video_id: str,
             output_path: OutputPath = None,
         ) -> dict:
-            """Get a video job's status. Once completed, downloads the video and returns its path."""
+            """Check a job from generate_video and download the video once it is done.
+
+            status is queued, running, completed or failed; while the job is queued or running, wait a while before
+            checking again. When it is completed, the video is saved and its path returned with the provider's job;
+            when it failed, the job carries the provider's error.
+            """
             video_model = models["video"][model]
             job, status, data = await endpoints[video_model.provider].get_video(video_model.model, video_id)
             result = {"status": status, "job": job}
