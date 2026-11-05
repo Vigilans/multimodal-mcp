@@ -1,4 +1,3 @@
-import inspect
 import json
 from datetime import datetime
 from pathlib import Path
@@ -89,20 +88,29 @@ def build(config: Config) -> FastMCP:
             Field(description="Model from list_models. Omit to use the only capable model or the category default."),
         ]
 
-    def model_tool(category: str, names: list[str]) -> Any:
-        """Register a tool whose description ends with the catalog's notes for the models in its enum."""
+    # The tools of each category and the capabilities that put a model in each tool's enum (None: every model).
+    tools = {
+        "image": {"generate_image": {"generate"}, "edit_image": {"edit"}},
+        "asr": {"transcribe_audio": {"text"}, "transcribe_audio_with_timestamps": {"segment", "word"}},
+        "tts": {"generate_speech": {"voice", "reference"}, "voice_design": {"design"}},
+        "video": {"generate_video": None},
+    }
 
-        def register(fn: Any) -> Any:
-            lines = []
-            for name in names:
-                model = models[category][name]
-                rules = notes.rules(config.providers[model.provider].endpoint, model.model, category, fn.__name__)
-                if rules:
-                    lines.append(f"- {name}: {' '.join(rules)}")
-            suffix = "\n\nModel notes:\n" + "\n".join(lines) if lines else ""
-            return mcp.tool(fn, description=inspect.getdoc(fn) + suffix)
+    def model_notes(category: str, model: Any) -> dict[str, list[str]]:
+        """The model's API notes under their keys: its category, then each tool it serves."""
+        endpoint = config.providers[model.provider].endpoint
+        served = [tool for tool, bases in tools[category].items() if bases is None or bases & set(model.capabilities)]
+        keys = {category: notes.rules(endpoint, model.model, category, "")}
+        keys |= {tool: notes.rules(endpoint, model.model, "", tool) for tool in served}
+        return {key: rules for key, rules in keys.items() if rules}
 
-        return register
+    def listing(category: str, name: str, model: Any) -> dict:
+        return {
+            "model": name,
+            "category": category,
+            "description": model.description,
+            "capabilities": model.capabilities,
+        }
 
     @mcp.tool
     def list_models(category: Category | None = None, capability: str | None = None) -> dict:
@@ -112,12 +120,23 @@ def build(config: Config) -> FastMCP:
         """
         return {
             "models": [
-                {"model": name, "category": kind, "description": model.description, "capabilities": model.capabilities}
-                for name, (kind, model) in named.items()
-                if category in (None, kind) and capability in (None, *model.capabilities)
+                listing(kind, name, item)
+                for name, (kind, item) in named.items()
+                if category in (None, kind) and capability in (None, *item.capabilities)
             ],
             "defaults": config.defaults,
         }
+
+    @mcp.tool
+    def get_model_guide(model: str, api_notes: bool = True) -> dict:
+        """Get a model's API notes; call it before using the model."""
+        if model not in named:
+            raise ValueError(f"unknown model {model!r}; models: {', '.join(named)}")
+        category, item = named[model]
+        result = listing(category, model, item)
+        if api_notes:
+            result["api_notes"] = model_notes(category, item)
+        return result
 
     def save_images(outputs: list[tuple[bytes, str]], name: str, output_path: str | None) -> dict:
         paths = []
@@ -130,7 +149,7 @@ def build(config: Config) -> FastMCP:
     if names := offering("image", "generate"):
         ImageModel = model_param(names)
 
-        @model_tool("image", names)
+        @mcp.tool
         async def generate_image(
             prompt: str,
             model: ImageModel = None,
@@ -153,7 +172,7 @@ def build(config: Config) -> FastMCP:
     if names := offering("image", "edit"):
         EditModel = model_param(names)
 
-        @model_tool("image", names)
+        @mcp.tool
         async def edit_image(
             prompt: str,
             images: Annotated[list[str], Field(description="Absolute paths of the source and reference images.")],
@@ -174,7 +193,7 @@ def build(config: Config) -> FastMCP:
     if names := offering("asr", "text"):
         AsrModel = model_param(names)
 
-        @model_tool("asr", names)
+        @mcp.tool
         async def transcribe_audio(
             file: AudioFile,
             model: AsrModel = None,
@@ -203,7 +222,7 @@ def build(config: Config) -> FastMCP:
     if names := offering("asr", "segment", "word"):
         TimestampModel = model_param(names)
 
-        @model_tool("asr", names)
+        @mcp.tool
         async def transcribe_audio_with_timestamps(
             file: AudioFile,
             granularity: Literal["segment", "word"] = "segment",
@@ -248,7 +267,7 @@ def build(config: Config) -> FastMCP:
     if names := offering("tts", "voice", "reference"):
         TtsModel = model_param(names)
 
-        @model_tool("tts", names)
+        @mcp.tool
         async def generate_speech(
             input: str,
             model: TtsModel = None,
@@ -293,7 +312,7 @@ def build(config: Config) -> FastMCP:
     if names := offering("tts", "design"):
         DesignModel = model_param(names)
 
-        @model_tool("tts", names)
+        @mcp.tool
         async def voice_design(
             description: Annotated[str, Field(description="The voice to create: age, gender, accent, timbre, manner.")],
             model: DesignModel = None,
@@ -315,7 +334,7 @@ def build(config: Config) -> FastMCP:
     if names := list(models.get("video", {})):
         VideoModel = model_param(names)
 
-        @model_tool("video", names)
+        @mcp.tool
         async def generate_video(
             prompt: str,
             model: VideoModel = None,

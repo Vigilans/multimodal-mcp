@@ -1,6 +1,6 @@
-# API notes for the configured models: what each call accepts and does. Notes cover parameter values and ranges,
-# required and unsupported parameters, input formats, sizes, counts and durations, inputs that cannot be combined,
-# options fields, output formats, and side effects such as billing or retention.
+# API notes for the configured models, which get_model_guide returns: what each call accepts and does. Notes cover
+# parameter values and ranges, required and unsupported parameters, input formats, sizes, counts and durations, inputs
+# that cannot be combined, options fields, output formats, and side effects such as billing or retention.
 # [<endpoint>] notes apply to every model on that endpoint. [<endpoint>.models.<name>] notes apply to one model:
 # <name> is the vendor's standard API name without its date version, or a self-hosted model's Hugging Face repo ID,
 # and aliases lists the model's other official names.

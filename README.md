@@ -7,6 +7,7 @@ One MCP server for image, speech-recognition, text-to-speech and video models. D
 | Tool | Registered when |
 |---|---|
 | `list_models(category?, capability?)` | always |
+| `get_model_guide(model)` | always |
 | `generate_image` | an `image` model has `generate` |
 | `edit_image` | an `image` model has `edit` |
 | `transcribe_audio` | an `asr` model has `text` |
@@ -14,6 +15,8 @@ One MCP server for image, speech-recognition, text-to-speech and video models. D
 | `generate_speech` | a `tts` model has `voice` or `reference` |
 | `voice_design` | a `tts` model has `design` |
 | `generate_video`, `get_video_job` | a `video` model exists |
+
+`get_model_guide` returns a model's API notes from [api-notes.toml](src/multimodal_mcp/catalog/api-notes.toml).
 
 Each tool's `model` parameter is an enum of the models that can perform it. The arguments of a call add requirements: `references` needs `reference`, `mask` needs `mask`, `granularity: "word"` needs `word`, `speakers` needs `speaker`, `hotwords` needs `hotwords`, `voice` and `reference_audio` need `voice` and `reference`, `timestamps` needs `timestamps`; a video with neither frames nor references needs `text`, `first_frame` and `last_frame` need `frames`, `reference_images`, `reference_videos` and `reference_audios` need `reference`. A named model that lacks a requirement is rejected before any request. Without `model`, the server uses the only capable model, else the category default if it is capable, else asks for a choice. Results report the model used.
 
