@@ -32,6 +32,8 @@ return the paths. Inputs are absolute file paths, or URLs and asset URIs where t
 - Video generation is asynchronous: poll get_video_job with the id and model from generate_video, waiting between \
 checks, until the job completes or fails.
 """
+# Tools that send requests to a provider's API and save the results as new files.
+PROVIDER_API_ANNOTATIONS = {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True}
 
 OutputPath = Annotated[
     str | None,
@@ -133,7 +135,7 @@ def build(config: Config) -> FastMCP:
             "capabilities": model.capabilities,
         }
 
-    @mcp.tool
+    @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": False})
     def list_models(category: Category | None = None, capability: str | None = None) -> dict:
         """List the configured media models with their capabilities, and each category's default model.
 
@@ -148,7 +150,7 @@ def build(config: Config) -> FastMCP:
             "defaults": config.defaults,
         }
 
-    @mcp.tool
+    @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
     async def get_model_guide(
         model: str,
         lang: Literal["zh", "en"],
@@ -182,7 +184,7 @@ def build(config: Config) -> FastMCP:
     if names := offering("image", "generate"):
         ImageModel = model_param(names)
 
-        @mcp.tool
+        @mcp.tool(annotations=PROVIDER_API_ANNOTATIONS)
         async def generate_image(
             prompt: str,
             model: ImageModel = None,
@@ -205,7 +207,7 @@ def build(config: Config) -> FastMCP:
     if names := offering("image", "edit"):
         EditModel = model_param(names)
 
-        @mcp.tool
+        @mcp.tool(annotations=PROVIDER_API_ANNOTATIONS)
         async def edit_image(
             prompt: str,
             images: Annotated[list[str], Field(description="Absolute paths of the source and reference images.")],
@@ -226,7 +228,7 @@ def build(config: Config) -> FastMCP:
     if names := offering("asr", "text"):
         AsrModel = model_param(names)
 
-        @mcp.tool
+        @mcp.tool(annotations=PROVIDER_API_ANNOTATIONS)
         async def transcribe_audio(
             file: AudioFile,
             model: AsrModel = None,
@@ -255,7 +257,7 @@ def build(config: Config) -> FastMCP:
     if names := offering("asr", "segment", "word"):
         TimestampModel = model_param(names)
 
-        @mcp.tool
+        @mcp.tool(annotations=PROVIDER_API_ANNOTATIONS)
         async def transcribe_audio_with_timestamps(
             file: AudioFile,
             granularity: Literal["segment", "word"] = "segment",
@@ -300,7 +302,7 @@ def build(config: Config) -> FastMCP:
     if names := offering("tts", "voice", "reference"):
         TtsModel = model_param(names)
 
-        @mcp.tool
+        @mcp.tool(annotations=PROVIDER_API_ANNOTATIONS)
         async def generate_speech(
             input: str,
             model: TtsModel = None,
@@ -345,7 +347,7 @@ def build(config: Config) -> FastMCP:
     if names := offering("tts", "design"):
         DesignModel = model_param(names)
 
-        @mcp.tool
+        @mcp.tool(annotations=PROVIDER_API_ANNOTATIONS)
         async def voice_design(
             description: Annotated[str, Field(description="The voice to create: age, gender, accent, timbre, manner.")],
             model: DesignModel = None,
@@ -367,7 +369,7 @@ def build(config: Config) -> FastMCP:
     if names := list(models.get("video", {})):
         VideoModel = model_param(names)
 
-        @mcp.tool
+        @mcp.tool(annotations=PROVIDER_API_ANNOTATIONS)
         async def generate_video(
             prompt: str,
             model: VideoModel = None,
@@ -416,7 +418,7 @@ def build(config: Config) -> FastMCP:
             # Job bodies may carry the provider's model ID; get_video_job takes the model's name.
             return job | {"model": name}
 
-        @mcp.tool
+        @mcp.tool(annotations=PROVIDER_API_ANNOTATIONS | {"idempotentHint": True})
         async def get_video_job(
             model: Annotated[Literal[tuple(names)], Field(description="The model the job was submitted to.")],
             video_id: str,
