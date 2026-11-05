@@ -35,7 +35,7 @@ Frame = Annotated[str | None, Field(description="Image the video must start or e
 Hotwords = Annotated[list[str] | None, Field(description="Names and terms the recognizer should favor.")]
 
 
-def _output(category: str, alias: str, suffix: str, output_path: str | None, index: int = 0) -> Path:
+def _output(category: str, name: str, suffix: str, output_path: str | None, index: int = 0) -> Path:
     if output_path:
         path = Path(output_path)
         if not path.is_absolute():
@@ -44,8 +44,8 @@ def _output(category: str, alias: str, suffix: str, output_path: str | None, ind
             path = path.with_stem(f"{path.stem}-{index}")
     else:
         now = datetime.now()
-        name = f"{now:%H%M%S-%f}-{alias}" + (f"-{index}" if index else "")
-        path = CACHE_DIR / f"{now:%Y-%m-%d}" / category / f"{name}.{suffix}"
+        stem = f"{now:%H%M%S-%f}-{name.replace('/', '-')}" + (f"-{index}" if index else "")
+        path = CACHE_DIR / f"{now:%Y-%m-%d}" / category / f"{stem}.{suffix}"
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -77,48 +77,54 @@ def build(config: Config) -> FastMCP:
         name: connect(provider.endpoint, provider.base_url, provider.key()) for name, provider in config.providers.items()
     }
 
+    named = config.named()
+    # Each category's models by name, in configuration order.
+    models = {
+        category: {name: model for name, (kind, model) in named.items() if kind == category} for category in config.models
+    }
+
     def capable(category: str, needed: set[str]) -> list[str]:
-        return [alias for alias, model in config.models.get(category, {}).items() if needed <= set(model.capabilities)]
+        return [name for name, model in models.get(category, {}).items() if needed <= set(model.capabilities)]
 
     def offering(category: str, *bases: str) -> list[str]:
-        """Aliases with at least one of the base capabilities; a tool is registered only when this is non-empty."""
-        return [alias for alias, model in config.models.get(category, {}).items() if set(bases) & set(model.capabilities)]
+        """Models with at least one of the base capabilities; a tool is registered only when this is non-empty."""
+        return [name for name, model in models.get(category, {}).items() if set(bases) & set(model.capabilities)]
 
-    def choose(category: str, alias: str | None, needed: set[str]) -> tuple[Any, str, str]:
-        """Resolve a call's model: the named alias, else the only capable model, else the category default."""
+    def choose(category: str, name: str | None, needed: set[str]) -> tuple[Any, str, str]:
+        """Resolve a call's model: the named model, else the only capable model, else the category default."""
         candidates = capable(category, needed)
-        if alias is None:
+        if name is None:
             default = config.defaults.get(category)
             if len(candidates) == 1:
-                alias = candidates[0]
+                name = candidates[0]
             elif default in candidates:
-                alias = default
+                name = default
             elif candidates:
                 raise ValueError(f"choose a model: {', '.join(candidates)}")
             else:
                 raise ValueError(f"no {category} model supports {sorted(needed)}")
-        elif alias not in candidates:
-            missing = sorted(needed - set(config.models[category][alias].capabilities))
-            raise ValueError(f"{alias} lacks {missing}; capable models: {', '.join(candidates) or 'none'}")
-        model = config.models[category][alias]
-        return endpoints[model.provider], model.model, alias
+        elif name not in candidates:
+            missing = sorted(needed - set(models[category][name].capabilities))
+            raise ValueError(f"{name} lacks {missing}; capable models: {', '.join(candidates) or 'none'}")
+        model = models[category][name]
+        return endpoints[model.provider], model.model, name
 
     def model_param(names: list[str]) -> Any:
         return Annotated[
             Literal[tuple(names)] | None,
-            Field(description="Model alias from list_models. Omit to use the only capable model or the category default."),
+            Field(description="Model from list_models. Omit to use the only capable model or the category default."),
         ]
 
-    def model_tool(category: str, aliases: list[str]) -> Any:
+    def model_tool(category: str, names: list[str]) -> Any:
         """Register a tool whose description ends with the catalog's notes for the models in its enum."""
 
         def register(fn: Any) -> Any:
             lines = []
-            for alias in aliases:
-                model = config.models[category][alias]
+            for name in names:
+                model = models[category][name]
                 rules = _rules(config.providers[model.provider].endpoint, model.model, category, fn.__name__)
                 if rules:
-                    lines.append(f"- {alias}: {' '.join(rules)}")
+                    lines.append(f"- {name}: {' '.join(rules)}")
             notes = "\n\nModel notes:\n" + "\n".join(lines) if lines else ""
             return mcp.tool(fn, description=inspect.getdoc(fn) + notes)
 
@@ -126,30 +132,31 @@ def build(config: Config) -> FastMCP:
 
     @mcp.tool
     def list_models(category: Category | None = None, capability: str | None = None) -> dict:
-        """List the configured media models with their capabilities, and each category's default model."""
+        """List the configured media models with their capabilities, and each category's default model.
+
+        A model's name is its model ID, or <provider>/<model ID> when several providers serve the same model ID.
+        """
         return {
             "models": [
-                {"model": alias, "category": name, "description": model.description, "capabilities": model.capabilities}
-                for name, models in config.models.items()
-                if category in (None, name)
-                for alias, model in models.items()
-                if capability in (None, *model.capabilities)
+                {"model": name, "category": kind, "description": model.description, "capabilities": model.capabilities}
+                for name, (kind, model) in named.items()
+                if category in (None, kind) and capability in (None, *model.capabilities)
             ],
             "defaults": config.defaults,
         }
 
-    def save_images(outputs: list[tuple[bytes, str]], alias: str, output_path: str | None) -> dict:
+    def save_images(outputs: list[tuple[bytes, str]], name: str, output_path: str | None) -> dict:
         paths = []
         for index, (data, suffix) in enumerate(outputs):
-            path = _output("image", alias, suffix, output_path, index)
+            path = _output("image", name, suffix, output_path, index)
             path.write_bytes(data)
             paths.append(str(path))
-        return {"model": alias, "paths": paths}
+        return {"model": name, "paths": paths}
 
-    if aliases := offering("image", "generate"):
-        ImageModel = model_param(aliases)
+    if names := offering("image", "generate"):
+        ImageModel = model_param(names)
 
-        @model_tool("image", aliases)
+        @model_tool("image", names)
         async def generate_image(
             prompt: str,
             model: ImageModel = None,
@@ -163,16 +170,16 @@ def build(config: Config) -> FastMCP:
             output_path: OutputPath = None,
         ) -> dict:
             """Generate an image from a prompt and save it to a file."""
-            endpoint, model_id, alias = choose("image", model, {"generate"} | ({"reference"} if references else set()))
+            endpoint, model_id, name = choose("image", model, {"generate"} | ({"reference"} if references else set()))
             outputs = await endpoint.generate_image(
                 model_id, prompt, images=references, mask=None, size=size, quality=quality, options=options
             )
-            return save_images(outputs, alias, output_path)
+            return save_images(outputs, name, output_path)
 
-    if aliases := offering("image", "edit"):
-        EditModel = model_param(aliases)
+    if names := offering("image", "edit"):
+        EditModel = model_param(names)
 
-        @model_tool("image", aliases)
+        @model_tool("image", names)
         async def edit_image(
             prompt: str,
             images: Annotated[list[str], Field(description="Absolute paths of the source and reference images.")],
@@ -184,16 +191,16 @@ def build(config: Config) -> FastMCP:
             output_path: OutputPath = None,
         ) -> dict:
             """Edit images with a prompt and save the result to a file."""
-            endpoint, model_id, alias = choose("image", model, {"edit"} | ({"mask"} if mask else set()))
+            endpoint, model_id, name = choose("image", model, {"edit"} | ({"mask"} if mask else set()))
             outputs = await endpoint.generate_image(
                 model_id, prompt, images=images, mask=mask, size=size, quality=quality, options=options
             )
-            return save_images(outputs, alias, output_path)
+            return save_images(outputs, name, output_path)
 
-    if aliases := offering("asr", "text"):
-        AsrModel = model_param(aliases)
+    if names := offering("asr", "text"):
+        AsrModel = model_param(names)
 
-        @model_tool("asr", aliases)
+        @model_tool("asr", names)
         async def transcribe_audio(
             file: AudioFile,
             model: AsrModel = None,
@@ -204,7 +211,7 @@ def build(config: Config) -> FastMCP:
             output_path: OutputPath = None,
         ) -> dict:
             """Transcribe audio to text. Saves the provider response and returns the text."""
-            endpoint, model_id, alias = choose("asr", model, {"text"} | ({"hotwords"} if hotwords else set()))
+            endpoint, model_id, name = choose("asr", model, {"text"} | ({"hotwords"} if hotwords else set()))
             raw, result = await endpoint.transcribe(
                 model_id,
                 file,
@@ -215,14 +222,14 @@ def build(config: Config) -> FastMCP:
                 hotwords=hotwords,
                 options=options,
             )
-            path = _output("asr", alias, "json", output_path)
+            path = _output("asr", name, "json", output_path)
             path.write_text(raw, encoding="utf-8")
-            return {"model": alias, "text": result["text"], "path": str(path)}
+            return {"model": name, "text": result["text"], "path": str(path)}
 
-    if aliases := offering("asr", "segment", "word"):
-        TimestampModel = model_param(aliases)
+    if names := offering("asr", "segment", "word"):
+        TimestampModel = model_param(names)
 
-        @model_tool("asr", aliases)
+        @model_tool("asr", names)
         async def transcribe_audio_with_timestamps(
             file: AudioFile,
             granularity: Literal["segment", "word"] = "segment",
@@ -240,7 +247,7 @@ def build(config: Config) -> FastMCP:
             to a JSON file and the provider response beside it; returns the text, both paths and the counts.
             """
             needed = {granularity} | ({"speaker"} if speakers else set()) | ({"hotwords"} if hotwords else set())
-            endpoint, model_id, alias = choose("asr", model, needed)
+            endpoint, model_id, name = choose("asr", model, needed)
             raw, result = await endpoint.transcribe(
                 model_id,
                 file,
@@ -251,12 +258,12 @@ def build(config: Config) -> FastMCP:
                 hotwords=hotwords,
                 options=options,
             )
-            path = _output("asr", alias, "json", output_path)
+            path = _output("asr", name, "json", output_path)
             raw_path = path.with_name(f"{path.stem}.raw.json")
             path.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
             raw_path.write_text(raw, encoding="utf-8")
             return {
-                "model": alias,
+                "model": name,
                 "text": result["text"],
                 "path": str(path),
                 "raw_path": str(raw_path),
@@ -264,10 +271,10 @@ def build(config: Config) -> FastMCP:
                 "words": len(result["words"]),
             }
 
-    if aliases := offering("tts", "voice", "reference"):
-        TtsModel = model_param(aliases)
+    if names := offering("tts", "voice", "reference"):
+        TtsModel = model_param(names)
 
-        @model_tool("tts", aliases)
+        @model_tool("tts", names)
         async def generate_speech(
             input: str,
             model: TtsModel = None,
@@ -288,7 +295,7 @@ def build(config: Config) -> FastMCP:
             if not voice and not reference_audio:
                 raise ValueError("give voice or reference_audio")
             requested = {"voice": voice, "reference": reference_audio, "timestamps": timestamps}
-            endpoint, model_id, alias = choose("tts", model, {name for name, value in requested.items() if value})
+            endpoint, model_id, name = choose("tts", model, {key for key, value in requested.items() if value})
             data, suffix, subtitles = await endpoint.synthesize(
                 model_id,
                 input,
@@ -300,19 +307,19 @@ def build(config: Config) -> FastMCP:
                 timestamps=timestamps,
                 options=options,
             )
-            path = _output("tts", alias, suffix, output_path)
+            path = _output("tts", name, suffix, output_path)
             path.write_bytes(data)
-            result = {"model": alias, "path": str(path)}
+            result = {"model": name, "path": str(path)}
             if subtitles is not None:
                 timestamps_path = path.with_suffix(".json")
                 timestamps_path.write_text(json.dumps({"text": input} | subtitles, ensure_ascii=False), encoding="utf-8")
                 result["timestamps_path"] = str(timestamps_path)
             return result
 
-    if aliases := offering("tts", "design"):
-        DesignModel = model_param(aliases)
+    if names := offering("tts", "design"):
+        DesignModel = model_param(names)
 
-        @model_tool("tts", aliases)
+        @model_tool("tts", names)
         async def voice_design(
             description: Annotated[str, Field(description="The voice to create: age, gender, accent, timbre, manner.")],
             model: DesignModel = None,
@@ -323,18 +330,18 @@ def build(config: Config) -> FastMCP:
             output_path: OutputPath = None,
         ) -> dict:
             """Create a reusable voice from a description. Returns its voice ID and saves a preview clip."""
-            endpoint, model_id, alias = choose("tts", model, {"design"})
+            endpoint, model_id, name = choose("tts", model, {"design"})
             new_id, data, suffix = await endpoint.design_voice(
                 model_id, description, preview_text=preview_text, voice_id=voice_id
             )
-            path = _output("tts", alias, suffix, output_path)
+            path = _output("tts", name, suffix, output_path)
             path.write_bytes(data)
-            return {"model": alias, "voice_id": new_id, "preview_path": str(path)}
+            return {"model": name, "voice_id": new_id, "preview_path": str(path)}
 
-    if aliases := list(config.models.get("video", {})):
-        VideoModel = model_param(aliases)
+    if names := list(models.get("video", {})):
+        VideoModel = model_param(names)
 
-        @model_tool("video", aliases)
+        @model_tool("video", names)
         async def generate_video(
             prompt: str,
             model: VideoModel = None,
@@ -365,7 +372,7 @@ def build(config: Config) -> FastMCP:
             needed = ({"frames"} if first_frame or last_frame else set()) | (
                 {"reference"} if reference_images or reference_videos or reference_audios else set()
             )
-            endpoint, model_id, alias = choose("video", model, needed or {"text"})
+            endpoint, model_id, name = choose("video", model, needed or {"text"})
             job = await endpoint.generate_video(
                 model_id,
                 prompt,
@@ -380,17 +387,17 @@ def build(config: Config) -> FastMCP:
                 seconds=seconds,
                 options=options,
             )
-            # Job bodies may carry the provider's model ID; the alias is what get_video_job takes.
-            return job | {"model": alias}
+            # Job bodies may carry the provider's model ID; get_video_job takes the model's name.
+            return job | {"model": name}
 
         @mcp.tool
         async def get_video_job(
-            model: Annotated[Literal[tuple(aliases)], Field(description="The model the job was submitted to.")],
+            model: Annotated[Literal[tuple(names)], Field(description="The model the job was submitted to.")],
             video_id: str,
             output_path: OutputPath = None,
         ) -> dict:
             """Get a video job's status. Once completed, downloads the video and returns its path."""
-            video_model = config.models["video"][model]
+            video_model = models["video"][model]
             job, status, data = await endpoints[video_model.provider].get_video(video_model.model, video_id)
             result = {"status": status, "job": job}
             if data is not None:

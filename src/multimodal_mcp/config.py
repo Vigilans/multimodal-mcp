@@ -1,5 +1,6 @@
 import os
 import tomllib
+from collections import Counter
 from pathlib import Path
 from typing import Literal
 
@@ -43,22 +44,36 @@ class Model(BaseModel):
 
 class Config(BaseModel):
     providers: dict[str, Provider] = {}
-    # Aliases are unique within a category: models.<category>.<alias>.
-    models: dict[Category, dict[str, Model]] = {}
+    models: dict[Category, list[Model]] = {}
     defaults: dict[Category, str] = {}
+
+    def named(self) -> dict[str, tuple[Category, Model]]:
+        """Each model under its name: the model ID, or <provider>/<model> when several entries share the model ID."""
+        counts = Counter(model.model for models in self.models.values() for model in models)
+        named: dict[str, tuple[Category, Model]] = {}
+        for category, models in self.models.items():
+            for model in models:
+                name = model.model if counts[model.model] == 1 else f"{model.provider}/{model.model}"
+                if name in named:
+                    raise ValueError(f"models.{category}: {name} is configured twice")
+                named[name] = (category, model)
+        return named
 
     @model_validator(mode="after")
     def _references(self) -> "Config":
         for category, models in self.models.items():
-            for alias, model in models.items():
+            for index, model in enumerate(models):
                 if model.provider not in self.providers:
-                    raise ValueError(f"models.{category}.{alias}.provider: unknown provider {model.provider!r}")
+                    raise ValueError(f"models.{category}[{index}].provider: unknown provider {model.provider!r}")
                 unknown = set(model.capabilities) - CAPABILITIES[category]
                 if unknown:
-                    raise ValueError(f"models.{category}.{alias}.capabilities: unknown {sorted(unknown)}")
-        for category, alias in self.defaults.items():
-            if alias not in self.models.get(category, {}):
-                raise ValueError(f"defaults.{category}: unknown model {alias!r}")
+                    raise ValueError(f"models.{category}[{index}].capabilities: unknown {sorted(unknown)}")
+        named = self.named()
+        for category, name in self.defaults.items():
+            if name not in named or named[name][0] != category:
+                shared = [other for other, (kind, model) in named.items() if kind == category and model.model == name]
+                hint = f"; name one of {', '.join(shared)}" if shared else ""
+                raise ValueError(f"defaults.{category}: unknown model {name!r}{hint}")
         return self
 
 

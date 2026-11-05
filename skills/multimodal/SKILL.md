@@ -9,7 +9,7 @@ The multimodal MCP server exposes media models configured by the user. A tool ex
 
 ## Choosing a model
 
-1. If the user names a model, pass its alias as `model`.
+1. If the user names a model, pass it as `model`.
 2. Otherwise call `list_models` (optionally with `category` or `capability`) to see each model's description, capabilities, and the category default. Pick by what the request needs and the descriptions; list order carries no preference.
 3. You may omit `model`: the server then uses the only model capable of the call, or the category default. When several capable models remain and none is the default, it returns them; choose by description, or ask the user when the descriptions do not settle it.
 4. If a call fails, report the error; do not retry with another model unless the user asks.

@@ -15,7 +15,7 @@ One MCP server for image, speech-recognition, text-to-speech and video models. D
 | `voice_design` | a `tts` model has `design` |
 | `generate_video`, `get_video_job` | a `video` model exists |
 
-Each tool's `model` parameter is an enum of the aliases that can perform it. The arguments of a call add requirements: `references` needs `reference`, `mask` needs `mask`, `granularity: "word"` needs `word`, `speakers` needs `speaker`, `hotwords` needs `hotwords`, `voice` and `reference_audio` need `voice` and `reference`, `timestamps` needs `timestamps`; a video with neither frames nor references needs `text`, `first_frame` and `last_frame` need `frames`, `reference_images`, `reference_videos` and `reference_audios` need `reference`. A named model that lacks a requirement is rejected before any request. Without `model`, the server uses the only capable model, else the category default if it is capable, else asks for a choice. Results report the alias used.
+Each tool's `model` parameter is an enum of the models that can perform it. The arguments of a call add requirements: `references` needs `reference`, `mask` needs `mask`, `granularity: "word"` needs `word`, `speakers` needs `speaker`, `hotwords` needs `hotwords`, `voice` and `reference_audio` need `voice` and `reference`, `timestamps` needs `timestamps`; a video with neither frames nor references needs `text`, `first_frame` and `last_frame` need `frames`, `reference_images`, `reference_videos` and `reference_audios` need `reference`. A named model that lacks a requirement is rejected before any request. Without `model`, the server uses the only capable model, else the category default if it is capable, else asks for a choice. Results report the model used.
 
 Results are written to `~/.cache/multimodal-mcp/<YYYY-MM-DD>/<category>/` unless an absolute `output_path` is given, and tools return the file path. Timestamped transcription and `generate_speech(timestamps=true)` write `{text, duration?, segments: [{start, end, text, speaker?}], words: [{start, end, word, speaker?}]}` with times in seconds.
 
@@ -52,28 +52,28 @@ env_key = "GATEWAY_API_KEY"   # or: api_key = "..."
 endpoint = "gemini"           # base_url omitted: the official API
 env_key = "GEMINI_API_KEY"
 
-[models.image.flare]          # models.<image|asr|tts|video>.<alias>
+[[models.image]]              # models.<image|asr|tts|video>
 provider = "gateway"
 model = "gpt-image-2.5-flare"
 description = "Fast image generation and editing"
 capabilities = ["generate", "edit", "reference", "mask"]
 
-[models.video.h3]
+[[models.video]]
 provider = "gateway"
 model = "MiniMax-H3"
 description = "Video with synchronized audio; text, first/last frame, or reference driven"
 capabilities = ["text", "frames"]
 
-[models.tts.gemini]
+[[models.tts]]
 provider = "gemini"
 model = "gemini-3.8-flash-tts"
 capabilities = ["voice", "design"]
 
 [defaults]                    # optional, per category
-image = "flare"
+image = "gpt-image-2.5-flare"
 ```
 
-Every model lists its `capabilities`; the server treats anything unlisted as unsupported.
+Every model lists its `capabilities`; the server treats anything unlisted as unsupported. Tools, `list_models` and `defaults` name a model by its `model` value, or by `<provider>/<model>` when several entries share that value, such as `gateway/gpt-image-2.5-flare` beside `openai/gpt-image-2.5-flare`.
 
 ## Endpoints
 
