@@ -26,3 +26,7 @@ multimodal-mcp = "multimodal_mcp:main"
 [build-system]
 requires = ["uv_build>=0.12.13,<0.13.0"]
 build-backend = "uv_build"
+
+[tool.uv.build-backend]
+# Reference files get_model_guide downloads at run time.
+source-exclude = ["src/multimodal_mcp/catalog/references"]
