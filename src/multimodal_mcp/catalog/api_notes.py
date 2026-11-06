@@ -1,5 +1,6 @@
 """The API notes of api-notes.toml, whose header describes their scope and layout."""
 
+import fnmatch
 import tomllib
 from pathlib import Path
 
@@ -9,13 +10,18 @@ API_NOTES = tomllib.loads((Path(__file__).parent / "api-notes.toml").read_text(e
 
 
 def model_entry(endpoint: str, model: str) -> dict:
-    """The model's entry under the endpoint, matched by its name or an alias; empty when it has none."""
+    """The model's entry under the endpoint, the first whose name or an alias matches it as a glob; empty when it has
+    none."""
     matching = matching_names(model)
     return next(
         (
             entry
             for key, entry in API_NOTES.get(endpoint, {}).get("models", {}).items()
-            if matching & {notes_name(alias) for alias in (key, *entry.get("aliases", []))}
+            if any(
+                fnmatch.fnmatchcase(name, notes_name(glob))
+                for name in matching
+                for glob in (key, *entry.get("aliases", []))
+            )
         ),
         {},
     )

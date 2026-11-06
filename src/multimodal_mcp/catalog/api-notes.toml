@@ -3,12 +3,13 @@
 # that cannot be combined, options fields, output formats, and side effects such as billing or retention. How to write
 # a prompt (structure, reference labels, markup, wording, length) belongs in prompt-guides.toml and the vendor
 # references it lists.
-# [<endpoint>] notes apply to every model on that endpoint. [<endpoint>.models.<name>] notes apply to one model:
-# <name> is the vendor's standard API name without its date version, or a self-hosted model's Hugging Face repo ID,
-# and aliases lists the model's other official names. capabilities lists what the model can do on the endpoint, which
-# a configured model uses unless it lists its own.
-# A configured model matches <name> or an alias ignoring case and anything up to the last "/", either exactly or with
-# a trailing date version (-YYMMDD or -YYYY-MM-DD).
+# [<endpoint>] notes apply to every model on that endpoint. [<endpoint>.models.<name>] notes apply to one model, or
+# to a family whose models share them: <name> is the vendor's standard API name without its date version, a
+# self-hosted model's Hugging Face repo ID, or a glob over a family's names, and aliases lists the model's other
+# official names. capabilities lists what the model can do on the endpoint, which a configured model uses unless it
+# lists its own.
+# A configured model takes the first entry whose <name> or an alias matches it as a glob, ignoring case and anything
+# up to the last "/", with or without a trailing date version (-YYMMDD or -YYYY-MM-DD).
 # Notes are keyed by a tool, or by a category for all of that category's tools. Each note's comment, and the comment
 # on capabilities, gives its source: a doc URL and section, source code at a pinned version, or the observed error.
 
