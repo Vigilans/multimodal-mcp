@@ -45,6 +45,7 @@ from pydantic_ai_harness.subagents import (
 
 from ..config import Model, Provider
 from .media import AudioFiles, ffmpeg_path
+from .workspace import GitBashWorkspace
 
 INSTRUCTIONS = (Path(__file__).parent / "instructions.md").read_text(encoding="utf-8")
 # The server's tools an omni agent can call.
@@ -160,7 +161,7 @@ class OmniAgents:
     def _agent(self, name: str, path: str | None) -> Agent:
         model, provider = self.models[name]
         capabilities: list[Any] = [
-            LocalWorkspace(os.getcwd()),
+            LocalWorkspace(os.getcwd()) if os.name == "posix" else GitBashWorkspace(os.getcwd()),
             FileSystem(root_dir="/", read_only=True, content_hashes=False),
             Shell(env={"PATH": path} if path else None, tools=["run_command"], default_timeout=120),
         ]
