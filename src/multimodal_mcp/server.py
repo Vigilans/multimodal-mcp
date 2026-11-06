@@ -1,4 +1,5 @@
 import json
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any, Literal
@@ -10,12 +11,13 @@ from .catalog import api_notes as notes
 from .catalog import prompt_guides as guides
 from .config import Category, Config
 from .endpoints import connect
+from .omni import OmniAgents
 
 CACHE_DIR = Path.home() / ".cache" / "multimodal-mcp"
 # Hosts show the first line alone when they defer loading the server's tools.
 INSTRUCTIONS = """\
-Generate and edit images, transcribe audio, synthesize speech, design voices and generate videos with the media models \
-the user configured.
+Generate and edit images, transcribe audio, synthesize speech, design voices, generate videos and analyze media with \
+the media models the user configured.
 
 - Settle the model before writing the prompt; to choose among models, call list_models(category=...).
 - Before calling a model, call get_model_guide for it once per context. It returns the model's API notes (accepted \
@@ -31,6 +33,8 @@ models that can serve the call.
 return the paths. Inputs are absolute file paths, or URLs and asset URIs where the API notes allow them.
 - Video generation is asynchronous: poll get_video_job with the id and model from generate_video, waiting between \
 checks, until the job completes or fails.
+- Omni agents analyze images, audio and video in the background: start_omni_agent returns an agent_id at once, \
+wait_omni_agents waits until an agent's run ends, and get_omni_agent gives its answer and the tool calls it made.
 """
 # Tools that send requests to a provider's API and save the results as new files.
 PROVIDER_API_ANNOTATIONS = {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True}
@@ -76,7 +80,17 @@ def _output(category: str, name: str, suffix: str, output_path: str | None, inde
 
 
 def build(config: Config) -> FastMCP:
-    mcp = FastMCP("multimodal", instructions=INSTRUCTIONS)
+    agents: OmniAgents | None = None
+
+    @asynccontextmanager
+    async def lifespan(server: FastMCP):
+        if agents is None:
+            yield {}
+            return
+        async with agents.opened():
+            yield {}
+
+    mcp = FastMCP("multimodal", instructions=INSTRUCTIONS, lifespan=lifespan)
     endpoints = {
         name: connect(provider.endpoint, provider.base_url, provider.key()) for name, provider in config.providers.items()
     }
@@ -540,5 +554,91 @@ def build(config: Config) -> FastMCP:
                 path.write_bytes(data)
                 result["path"] = str(path)
             return result
+
+    if names := list(models.get("omni", {})):
+        OmniModel = model_param("omni", names)
+        AgentId = Annotated[str, Field(description="The agent_id that start_omni_agent returned.")]
+        agents = OmniAgents(
+            {name: (model, config.providers[model.provider]) for name, model in models["omni"].items()}, mcp, CACHE_DIR
+        )
+
+        @mcp.tool(annotations=PROVIDER_API_ANNOTATIONS)
+        async def start_omni_agent(
+            task: Annotated[
+                str,
+                Field(description="The question to answer and the absolute path of every source it concerns, with any constraints such as the timing precision needed or a tool-call budget."),
+            ],
+            model: OmniModel = None,
+        ) -> dict:
+            """Start an omni agent that analyzes images, audio and video, and return at once with its agent_id.
+
+            The agent works in the background on the omni model: it reads files and runs shell commands, such as
+            ffmpeg and ffprobe, in the server's working directory, and can call list_models, get_model_guide and the
+            transcription tools. Wait for it with wait_omni_agents, then read its answer and tool calls with
+            get_omni_agent. Agents live in the server's memory, so a server restart loses them, running or not.
+            Returns the agent_id, run_id, status and model.
+            """
+            _, _, name = choose("omni", model, set())
+            return await agents.start(task, name)
+
+        @mcp.tool(annotations=PROVIDER_API_ANNOTATIONS)
+        async def continue_omni_agent(
+            agent_id: AgentId,
+            message: Annotated[
+                str, Field(description="A follow-up question or correction, such as a new question about the same media.")
+            ],
+        ) -> dict:
+            """Send an omni agent a follow-up message.
+
+            While the agent's run is going, the message joins that run, which adds it to the conversation before its
+            next model request: delivery is current_run, with a message_id whose state get_omni_agent reports. Once
+            the run has ended, the message starts a new run on the agent's whole conversation, which costs like the
+            first: delivery is new_run, with the new run_id. delivery is undelivered when the run the message waited
+            for was stopped or ended before it took messages. Returns the agent_id, run_id, status, model and delivery.
+            """
+            return await agents.continue_(agent_id, message)
+
+        @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": False})
+        def get_omni_agent(
+            agent_id: AgentId,
+            offset: Annotated[
+                int, Field(ge=0, description="How many of the latest tool calls to skip; pass next_offset for older ones.")
+            ] = 0,
+        ) -> dict:
+            """Get an omni agent's status, its answer or error, and a page of the tool calls it made.
+
+            status is running, completed, failed or cancelled; output holds a completed run's answer, and error says
+            why a run failed or was cancelled. tool_calls lists up to 20 calls from all of the agent's runs, oldest
+            first, each with its tool_call_id, run_id, tool, args, state (running, completed, failed or interrupted)
+            and result, so shell commands show with their output. tool_calls_total counts them all; next_offset, when
+            set, gets the page before this one. A result over 4000 characters is cut, and result_path names the file
+            with all of it. messages gives the state of each message that joined a run: queued, in_history, or
+            undelivered when the run ended first.
+            """
+            return agents.get(agent_id, offset)
+
+        @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": False})
+        async def wait_omni_agents(
+            agent_ids: Annotated[list[str], Field(min_length=1, description="agent_ids from start_omni_agent.")],
+            timeout_seconds: Annotated[float, Field(gt=0, le=240, description="Longest wait.")] = 30,
+        ) -> dict:
+            """Wait until the current run of any of the omni agents ends, or the timeout passes.
+
+            Returns as soon as one agent is completed, failed or cancelled, including one that already was, so drop
+            that agent from agent_ids before waiting for the others. A timeout leaves the agents running: check them
+            with get_omni_agent, then wait again, continue or stop. Returns timed_out and each agent's agent_id,
+            run_id, status and model; get_omni_agent gives the answer.
+            """
+            return await agents.wait(agent_ids, timeout_seconds)
+
+        @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False})
+        async def stop_omni_agent(agent_id: AgentId) -> dict:
+            """Cancel an omni agent's current run, keeping the conversation it has so far.
+
+            Tool calls in progress are interrupted and their results lost; continue_omni_agent starts a new run from
+            the conversation. A provider request in flight, such as a transcription, may still complete and be billed.
+            Returns the agent_id, run_id, status and model.
+            """
+            return await agents.stop(agent_id)
 
     return mcp

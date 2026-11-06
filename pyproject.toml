@@ -12,6 +12,9 @@ dependencies = [
     "httpx>=0.28.1",
     "openai>=3.28.0",
     "pydantic>=2.14.0",
+    "pydantic-ai-harness>=0.66",
+    "pydantic-ai-slim[openai]>=2.66",
+    "static-ffmpeg>=3.0",
     "websockets>=15",
 ]
 
