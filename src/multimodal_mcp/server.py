@@ -129,6 +129,7 @@ def build(config: Config) -> FastMCP:
         "asr": {"transcribe_audio": {"text"}, "transcribe_audio_with_timestamps": {"segment", "word"}},
         "tts": {"generate_speech": {"voice", "reference"}, "voice_design": {"design"}},
         "video": {"generate_video": None},
+        "omni": {"start_omni_agent": None},
     }
 
     def model_notes(category: str, model: Any) -> dict[str, list[str]]:
@@ -161,8 +162,8 @@ def build(config: Config) -> FastMCP:
         Capabilities name the calls a model can serve: image generate, edit, reference (generate_image with references)
         and mask; asr text, segment and word (timestamp granularities), speaker and hotwords; tts voice (preset or
         registered voice IDs), reference (reference_audio), timestamps and design (voice_design); video text, frames
-        (first_frame or last_frame) and reference (reference media). It reads only the configuration; get_model_guide
-        gives a model's API notes and prompt guide.
+        (first_frame or last_frame) and reference (reference media); omni image and audio (the media the model reads).
+        It reads only the configuration; get_model_guide gives a model's API notes and prompt guide.
         """
         return {
             "models": [

@@ -213,6 +213,12 @@ asr = [
   "prompt: up to 224 tokens of sample text, such as the preceding transcript or correctly spelled names, whose spelling, punctuation and style the transcript follows.",  # https://developers.openai.com/api/docs/guides/speech-to-text §Prompting; openai-python 3.28.0 src/openai/resources/audio/transcriptions.py Transcriptions.create §prompt
 ]
 
+[openai.models."gemini-*-flash"]
+capabilities = ["image", "audio"]  # https://aistudio.google.com/docs/openai §Image understanding (image_url), §Audio understanding (input_audio)
+
+[openai.models."gemini-*-argon"]
+capabilities = ["image", "audio"]  # https://aistudio.google.com/docs/openai §Image understanding (image_url), §Audio understanding (input_audio)
+
 # Self-hosted models served by vLLM or vLLM-Omni.
 
 [openai.models."Qwen/Qwen-Image-2.1"]
