@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.3
+      - run: uv sync --locked
+      - name: Put ffmpeg and ffprobe on PATH
+        # The static-ffmpeg build that the server downloads when PATH lacks them.
+        run: |
+          uv run python - <<'PY'
+          import os
+          from static_ffmpeg import run
+          ffmpeg, _ = run.get_or_fetch_platform_executables_else_raise()
+          with open(os.environ["GITHUB_PATH"], "a") as path:
+              path.write(os.path.dirname(ffmpeg) + "\n")
+          PY
+      - run: uvx ruff check src/multimodal_mcp tests
+        if: runner.os == 'Linux'
+      - run: uv run pytest
+      - run: uv build
+        if: runner.os == 'Linux'
