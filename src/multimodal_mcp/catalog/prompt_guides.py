@@ -17,8 +17,6 @@ import httpx
 from . import matching_names
 
 PROMPT_GUIDES = tomllib.loads((Path(__file__).parent / "prompt-guides.toml").read_text(encoding="utf-8"))
-# get_model_guide keeps each family's reference files under a subfolder here.
-REFERENCES_DIR = Path(__file__).parent / "references"
 TIMEOUT = 60
 
 
@@ -254,7 +252,7 @@ async def download(http: httpx.AsyncClient, spec: dict, lang: str) -> bytes:
     return await get(http, url)
 
 
-async def fetch(files: list[dict], family: str, lang: str, update: bool) -> list[dict]:
+async def fetch(files: list[dict], directory: Path, lang: str, update: bool) -> list[dict]:
     """Each file's path, kind and status: present, downloaded or missing, with the error when a download failed.
 
     A file is downloaded when it is missing, or every time with update; a failed download keeps the existing file.
@@ -264,7 +262,7 @@ async def fetch(files: list[dict], family: str, lang: str, update: bool) -> list
         follow_redirects=True, timeout=TIMEOUT, headers={"User-Agent": "multimodal-mcp"}
     ) as http:
         for spec in files:
-            path = REFERENCES_DIR / family / spec["name"]
+            path = directory / spec["name"]
             result = {"path": str(path), "kind": spec["kind"]}
             if path.exists() and not update:
                 result["status"] = "present"

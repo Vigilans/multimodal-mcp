@@ -225,7 +225,9 @@ def build(config: Config) -> FastMCP:
             guide = guides.PROMPT_GUIDES[family]
             result["prompt_guide"] = {"family": family, "notes": guide["notes"]}
             if guide.get("files"):
-                result["prompt_guide"]["references"] = await guides.fetch(guide["files"], family, lang, update)
+                result["prompt_guide"]["references"] = await guides.fetch(
+                    guide["files"], CACHE_DIR / "references" / family, lang, update
+                )
         return result
 
     def save_images(outputs: list[tuple[bytes, str]], name: str, output_path: str | None) -> dict:
