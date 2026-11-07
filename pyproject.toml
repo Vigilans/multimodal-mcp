@@ -1,7 +1,7 @@
 [project]
 name = "multimodal-mcp"
 version = "0.1.0"
-description = "Add your description here"
+description = "MCP server for image, audio and video generation, transcription, voice design and media analysis."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -19,6 +19,9 @@ dependencies = [
     "static-ffmpeg>=3.0",
     "websockets>=15",
 ]
+
+[project.urls]
+Repository = "https://github.com/Vigilans/multimodal-mcp"
 
 [project.scripts]
 multimodal-mcp = "multimodal_mcp:main"
