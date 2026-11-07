@@ -190,29 +190,38 @@ def build(config: Config) -> FastMCP:
 
     @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
     async def get_model_guide(
-        model: Annotated[str, Field(description="Model name, as list_models and the tools' model parameters give it.")],
+        model: Annotated[str, Field(description="Model name, as in list_models and the tools' model parameters.")],
         lang: Annotated[
             Literal["zh", "en"],
             Field(description="zh when the conversation is mainly in Chinese, else en; selects the edition of references published in both."),
         ],
         update: Annotated[
-            bool, Field(description="Download the reference files again; a failed download keeps the existing file.")
+            bool,
+            Field(description="Download the reference files again when the user asks to refresh them; a failed download keeps the existing file."),
         ] = False,
         api_notes: Annotated[
             bool, Field(description="Include the model's API notes. Turn off only while they are still in your context.")
         ] = True,
         prompt_guide: Annotated[
             bool,
-            Field(description="Include the family's prompt guide and fetch its files. Turn off when the same family's guide is still in your context."),
+            Field(description="Include the family's prompt guide and fetch its files. Turn off when the same family's guide is still in your context, or while comparing candidate models' API notes; get the guide for the chosen model."),
         ] = True,
     ) -> dict:
-        """Get a model's API notes and its family's prompt guide; call it before using the model.
+        """Get a model's API notes and its family's prompt guide.
 
-        API notes give accepted values, input limits, options and side effects such as billing, keyed by category (all
-        of its tools) or by tool. The prompt guide's notes say which sections of the vendor's reference files to read
-        for writing prompts and for fixing results, and how their terms map to the tool parameters, which with the API
-        notes take precedence over what the files say about parameters, tools and output. Each file comes with its
-        path, kind and status; missing files are downloaded first. A model without a family has no prompt_guide.
+        API notes give accepted values, input limits, options and side effects such as billing, keyed by category
+        (shared by its tools) or by tool. The prompt guide's notes name the sections of the vendor's reference files
+        to read for the task and map their terms to the tool parameters; they and the API notes take precedence over
+        what the files say about parameters, tools and output. Each file comes with its path and status; missing files
+        are downloaded first. An existing file is reused for either lang, and update downloads it again in lang,
+        keeping the existing file with an error when the download fails. A notes-only family returns family and notes;
+        references is present when the family lists files. A model without a family has no prompt_guide.
+
+        To read the sections the notes name, first search each file once with search_files or grep -n for its
+        heading lines, such as "^#", and for any text anchors the notes name; this gives the line where each section
+        starts. Then read each named section by its line range with offset and limit: from its heading to the line
+        before the next heading at the same or a higher level. A parent heading's opening runs to its first
+        subheading, and a named field or line runs to the end anchor the notes give. Read only those ranges.
         """
         if model not in named:
             raise ValueError(f"unknown model {model!r}; models: {', '.join(named)}")

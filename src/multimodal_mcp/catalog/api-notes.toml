@@ -70,6 +70,7 @@ generate_speech = [
   "speed: 0.5-2.0.",  # https://www.volcengine.com/docs/6561/1598757 §req_params.audio_params.speech_rate: [-50, 100] maps to 0.5x-2.0x
   "response_format: mp3 (default), ogg_opus or pcm.",  # https://www.volcengine.com/docs/6561/1598757 §req_params.audio_params.format
   "Timestamps cover Chinese and English only.",  # https://www.volcengine.com/docs/6561/1598757 §req_params.audio_params.enable_subtitle
+  "instructions is sent as the one entry of context_texts, which holds either a voice instruction or the line said before input.",  # src/multimodal_mcp/endpoints/ark.py Ark.synthesize: additions.context_texts = [instructions]; https://www.volcengine.com/docs/6561/1598757 §req_params.additions.context_texts
 ]
 
 [ark.models."doubao-seed-asr-2.0"]
@@ -120,6 +121,7 @@ capabilities = ["generate", "reference"]  # https://platform.minimaxi.com/docs/a
 image = [
   "size: 1:1 (default), 16:9, 4:3, 3:2, 2:3, 3:4, 9:16 or 21:9, or WIDTHxHEIGHT with both sides 512-2048 in multiples of 8.",  # https://platform.minimaxi.com/docs/api-reference/image-generation-t2i §aspect_ratio, §width
   "options {\"prompt_optimizer\": true} lets the service expand the prompt; it is off by default.",  # https://platform.minimax.io/docs/api-reference/image-generation-t2i §prompt_optimizer
+  "For a consistent character, pass one frontal photo of a single person as the reference.",  # https://platform.minimaxi.com/docs/api-reference/image-generation-i2i §subject_reference
 ]
 
 [minimax.models."asr-1.0"]
@@ -153,6 +155,7 @@ generate_video = [
   "aspect_ratio: 16:9 (default) or 9:16; resolution: 360p, 720p (default), 1080p or 4k.",  # https://ai.google.dev/gemini-api/docs/omni §Control aspect ratio, §Output resolution
   "seconds is unsupported; clips run 3-10 s.",  # src/multimodal_mcp/endpoints/gemini.py Gemini.generate_video; https://ai.google.dev/gemini-api/docs/models/gemini-omni-flash §Limits
   "last_frame needs first_frame.",  # https://ai.google.dev/gemini-api/docs/omni §Using tags in prompts to set image and video roles
+  "The tool writes the [# Sources ...] and [# References ...] declarations before the prompt, binding the frames and references to their tags.",  # src/multimodal_mcp/endpoints/gemini.py Gemini.generate_video: declaration + prompt
   "Reference videos: up to 3 clips of up to 3 s each, with their audio ignored; reference audio is unsupported.",  # https://ai.google.dev/gemini-api/docs/omni §Limitations
   "Recognizable people in uploaded images are unsupported.",  # https://ai.google.dev/gemini-api/docs/omni §Limitations
   "A video to edit or extend runs up to 10 s; extension only appends to its end, and voices cannot be edited.",  # https://ai.google.dev/gemini-api/docs/omni §Limitations
@@ -190,6 +193,7 @@ generate_speech = [
   "response_format: wav (default), l16 (raw PCM), mulaw or alaw.",  # https://ai.google.dev/gemini-api/docs/speech-generation §Audio output formats
   "speed is unsupported; ask for the pace in instructions.",  # src/multimodal_mcp/endpoints/gemini.py Gemini.synthesize
   "reference_audio and timestamps are unsupported.",  # src/multimodal_mcp/endpoints/gemini.py Gemini.synthesize; capabilities above
+  "Each call speaks one turn in one voice.",  # src/multimodal_mcp/endpoints/gemini.py Gemini.synthesize: one voice per request
 ]
 voice_design = [
   "The preview is generated from the description, and Gemini assigns the voice ID; preview_text and voice_id are unsupported.",  # https://ai.google.dev/gemini-api/docs/voice-design §How Voice design works; src/multimodal_mcp/endpoints/gemini.py Gemini.design_voice
@@ -230,7 +234,7 @@ capabilities = ["text", "segment", "word"]  # openai-python 3.28.0 src/openai/re
 asr = [
   "Files up to 25 MB in flac, mp3, mp4, mpeg, mpga, m4a, ogg, wav or webm.",  # https://developers.openai.com/api/docs/guides/speech-to-text §File transcription; openai-python 3.28.0 src/openai/resources/audio/transcriptions.py Transcriptions.create §file
   "language: an ISO-639-1 code such as en.",  # openai-python 3.28.0 src/openai/resources/audio/transcriptions.py Transcriptions.create §language
-  "prompt: up to 224 tokens of sample text, such as the preceding transcript or correctly spelled names, whose spelling, punctuation and style the transcript follows.",  # https://developers.openai.com/api/docs/guides/speech-to-text §Prompting; openai-python 3.28.0 src/openai/resources/audio/transcriptions.py Transcriptions.create §prompt
+  "prompt: up to 224 tokens of sample text, whose spelling, punctuation and style the transcript follows.",  # https://developers.openai.com/api/docs/guides/speech-to-text §Prompting; openai-python 3.28.0 src/openai/resources/audio/transcriptions.py Transcriptions.create §prompt
 ]
 
 [openai.models."gemini-*-flash"]
@@ -257,6 +261,7 @@ transcribe_audio = [
   "The transcript marks each segment as [start][S01]text[end]; for clean speaker segments, use transcribe_audio_with_timestamps with speakers=true.",  # https://github.com/vllm-project/vllm/blob/7853700d4cdc2b84c728c840114ed42cda7454a7/vllm/model_executor/models/moss_transcribe_diarize.py §parse_diarized_transcript
 ]
 transcribe_audio_with_timestamps = [
+  "Timed segments and speaker labels are parsed from the default [start][S01]text[end] format, so a prompt for this tool must keep that format.",  # https://github.com/vllm-project/vllm/blob/7853700d4cdc2b84c728c840114ed42cda7454a7/vllm/model_executor/models/moss_transcribe_diarize.py §parse_verbose_transcript, §parse_diarized_transcript
   "Without speakers=true, segment text keeps its [S01] speaker prefix.",  # https://github.com/vllm-project/vllm/blob/7853700d4cdc2b84c728c840114ed42cda7454a7/vllm/model_executor/models/moss_transcribe_diarize.py §parse_verbose_transcript
 ]
 

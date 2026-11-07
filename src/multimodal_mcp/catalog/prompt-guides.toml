@@ -1,19 +1,19 @@
 # Prompt guides for model families, which get_model_guide returns: how to write each family's prompts from the
-# vendors' own prompt-writing references, which get_model_guide downloads into references/<family>/.
+# vendors' own prompt-writing references, which get_model_guide downloads into the server cache's references/<family>/.
 # Each table is a model family:
 #   category  the list_models category
 #   models    globs over model IDs, matched on any endpoint, ignoring case, anything up to the last "/", and a date suffix
-#   notes     which sections of the files to read for writing prompts and for fixing results, how their terms map to
-#             the tool parameters, and what in them to skip; parameter facts belong in api-notes.toml
+#   notes     for each task, the sections of the files to read by title or line, where reading stops, how their terms
+#             map to the tool parameters, and adaptations within a section; parameter facts belong in api-notes.toml
 #   files     the upstream files; a family without files has only its notes
 # Each file:
 #   name      the local file name
 #   kind      pe (rules or templates written for an agent or prompt rewriter) or guide (explanations and examples
 #             written for people)
 #   url       one URL, or {en = ..., zh = ...} for a source published in both languages
-#   select    for an HTML page: the element holding the article, as tag#id or tag.class; it is saved as Markdown
+#   select    for an HTML page: the element holding the article, as tag#id or tag.class; saved as Markdown
 #   skill     url is an agent-skills index.json; the file is the SKILL.md of the archive with this name
-# Other URLs return Markdown or text, which is saved as is.
+# Other URLs return Markdown or text, saved as is.
 # Where the en and zh editions title a section differently, notes give both titles as "en" / "zh".
 
 # image
@@ -22,9 +22,10 @@
 category = "image"
 models = ["gpt-image-*"]
 notes = '''
-Write the prompt by prompting.md: all of it except "Contents", "Transparent images", "Fallback-only execution controls" and "Where to find copy/paste recipes". Then start from the one recipe in sample-prompts.md that matches the use case, under "Generate", "Asset type templates (taxonomy-aligned)" or "Edit"; the text before "Generate" says how to adapt a recipe, apart from its CLI model notes. Image 1, Image 2 count the tool's images or references in order.
-Both files serve Codex's imagegen skill, which runs its own image_gen tool or CLI and has its own SKILL.md. Quality, transparency, masks and size go in the tool parameters and options, as the API notes give. The files are written for gpt-image-2; their writing rules hold for the other GPT Image models.
-To fix a result, read "Prompting fundamentals", "Refine an image across turns" and "Check the result" in image-prompting.md, and the one example under "Generate images", "Edit images" or "More workflows" closest to the task. The rest of image-prompting.md covers models, parameters and code.
+Write a first draft from prompting.md: "Structure", "Specificity policy", "Allowed and disallowed augmentation", and the one entry under "Use-case tips" that matches the use. For a new image add "Composition and layout"; for an edit, "Constraints and invariants"; for text in the image, "Text in images"; with input images, "Input images and references".
+Then start from the one recipe in sample-prompts.md that best matches the task, under "Generate", "Asset type templates (taxonomy-aligned)" or "Edit". When a recipe's labeled lines are unclear, read the paragraph that begins "The labeled lines are prompt scaffolding".
+To check a result, read "Check the result" in image-prompting.md. To fix a defect, read "Iterate deliberately" in prompting.md; then in image-prompting.md the opening of "Refine an image across turns", "Change one condition", and the explanation and prompt of the one example that matches the defect.
+Image 1, Image 2 count the tool's images or references in list order. The files are written for gpt-image-2, and their writing rules hold for the other GPT Image models; size, transparency, quality and masks follow the API notes.
 '''
 files = [
   { name = "prompting.md", kind = "pe", url = "https://raw.githubusercontent.com/openai/codex/main/codex-rs/skills/src/assets/samples/imagegen/references/prompting.md" },
@@ -36,8 +37,9 @@ files = [
 category = "image"
 models = ["gemini-*-image*"]
 notes = '''
-Write the prompt by prompt-guide.md, all of it except "Nano Banana", a product link, and by best-practices.md except "What's next?".
-The Thought Signatures tip in best-practices.md is a feature of multi-turn API sessions; each tool call is a separate request, so refine a result by passing it to edit_image.
+For every task, read "What to think about while writing prompts" and the opening of "General prompting" in prompt-guide.md, and in best-practices.md the bullet list from "- **Be specific:**" through the "- **Pass [Thought Signatures]" bullet.
+Add by need: for an edit, "Editing with prompts"; for text in the image, "Render precise text"; to translate or localize, "Translate and localize ideas"; to keep a subject consistent across references, "Maintain subject consistency"; for a diagram of real-world knowledge, "Visualize real-world knowledge"; when the user asks for several images, "Ask for multiple images at once".
+Thought Signatures are a feature of multi-turn API sessions. Each tool call is a separate request, so refine a result by passing it to edit_image.
 '''
 files = [
   { name = "prompt-guide.md", kind = "guide", url = "https://deepmind.google/models/gemini-image/prompt-guide/", select = "main#page-content" },
@@ -48,8 +50,9 @@ files = [
 category = "image"
 models = ["doubao-seedream-*"]
 notes = '''
-Write the prompt by prompt-guide.md, all of it. Image 1, Image 2 count the tool's images or references in order. The en edition covers Seedream 4.0 to 4.5 and the zh edition 4.0 to 5.0, with the same rules.
-With Seedream 5.0 pro or flash, an edit can target a point or a box. In editing-guide.md read only "Key step: Convert the target area into normalized coordinates" / "关键操作：将目标区域转换为归一化坐标" for the 0-999 coordinates, computed from pixel positions in the input image, "Scenarios" / "支持场景", "Prompt suggestions" / "Prompt 写法" and "Tips for specifying the subject" / "使用说明". The upload, canvas, code and generation steps belong to the guide's demo app.
+For every task, read "General guidelines" / "通用规则" in prompt-guide.md, then the section for the task: text to image, "Text-to-Image" / "文生图"; an edit, the opening of "Image-to-Image" / "图生图" and "Image editing" / "图像编辑"; generation from references, "Reference-based generation" / "参考图生图", adding "Multi-image input" / "多图输入" for several input images; a set of output images, "Multi-image output" / "多图输出".
+With Seedream 5.0 pro or flash, an edit can target a point or a box. For that, read in editing-guide.md "Key step: Convert the target area into normalized coordinates" / "关键操作：将目标区域转换为归一化坐标", "Scenarios" / "支持场景", "Prompt suggestions" / "Prompt 写法" and "Tips for specifying the subject" / "使用说明". The coordinates are integers 0-999, computed from pixel positions in the input image's width and height.
+Image 1 / 图1 count the tool's images or references in list order. The en edition covers Seedream 4.0 to 4.5 and the zh edition 4.0 to 5.0; parameters and capabilities follow the current model's API notes.
 '''
 files = [
   { name = "prompt-guide.md", kind = "guide", url = { en = "https://ai.byteplus.com/ark/region:ap-southeast-1/docs/seedream-4-0-5-0-prompt-guide.md", zh = "https://ark.volcengine.com/region:cn-beijing/docs/seedream-4-0-5-0-prompt-guide.md" } },
@@ -60,9 +63,12 @@ files = [
 category = "image"
 models = ["qwen-image-*"]
 notes = '''
-Without input images, write the prompt by pe-t2i.txt. With input images, whether edit_image images or generate_image references, which both reach the model as input images, write it by pe-i2i.txt. Read only that one file, all of it except "Output format" / "Output Format", the rewriter's JSON reply: pass only the text it would put in rewritten_prompt as prompt. <image1>, <image2> count the input images in list order.
-The ratio the rewriter would set in wh_ratio goes in size as WIDTHxHEIGHT; in pe-i2i.txt, "Output Size Determination" decides it, and when ratio_follow would name an input image, use that image's size. The closing line that introduces the user's request is part of the rewriter setup.
-For a transparent image, read only "Transparent Image Generation (RGBA)" in model-card.md; its code samples are diffusers usage.
+Without input images, read in pe-t2i.txt the opening under its title, "Step 1" to "Step 5", "Step 7", "Step 8", "Throughout" and "Language"; with text to render in the image, add "Step 6 — Set every piece of text".
+With input images, whether edit_image images to modify or generate_image references for a new image, read in pe-i2i.txt the language rules from its title up to "Core Objective"; "Core Objective", "The Governing Principle — Attribute Disentanglement at Full Strength" and "What to Anchor, What to Decide"; and "Image Reference Rules" for several images.
+For output size, read the opening of "Output Size Determination" and "Step 1: Check if the user explicitly specified a size or aspect ratio". When the user supplies pixel dimensions, set size to those dimensions unchanged; when the user supplies an aspect ratio or a term that Step 1 lists, use that ratio. This completes size reading for explicit dimensions or ratios. When neither is supplied, read the opening of "Step 2: If the user did NOT specify any size or ratio" and one matching subsection: "Single-image editing (1 input image):", "Multi-image editing (N ≥ 2 input images):", "Outpainting (扩图 / 延伸画面):", "Panoramic generation (全景 / panorama):" or "Three-view drawings and multi-grid generation (三视图 / 多宫格):", ending before the next subsection heading.
+For prompt formatting, read the range under "Output Format" from "`rewritten_prompt` formatting rules:" through the `rewritten_prompt` item under "Rules for each field:".
+When the user gives only a ratio, read "Supported Aspect Ratios" in model-card.md. For a transparent image, use the prompt wording that "Transparent Image Generation (RGBA)" in model-card.md recommends.
+The text the guides call rewritten_prompt is prompt. The ratio they would set in wh_ratio goes in size as WIDTHxHEIGHT; when ratio_follow would name an input image, size is that image's pixel size; a size the user gives stays as given. <image1>, <image2> count the input images in list order.
 '''
 files = [
   { name = "pe-t2i.txt", kind = "pe", url = "https://huggingface.co/Qwen/Qwen-Image-2.1-PE-T2I/resolve/main/system_prompt.txt" },
@@ -74,8 +80,7 @@ files = [
 category = "image"
 models = ["image-01*"]
 notes = '''
-MiniMax publishes no prompt-writing guide for image-01. Its API examples are short descriptive phrases, such as "A man in a white t-shirt, full-body, standing front view, outdoors, document style, film grain, photorealistic". Keep within the length in the API notes.
-For a consistent character, pass one frontal photo of a single person as the reference.
+MiniMax publishes no prompt-writing file for image-01. Write a short description like its API examples, giving in turn the subject, pose and framing, setting, and style and lighting, such as "A man in a white t-shirt, full-body, standing front view, outdoors, document style, film grain, photorealistic".
 '''
 
 # asr
@@ -84,8 +89,9 @@ For a consistent character, pass one frontal photo of a single person as the ref
 category = "asr"
 models = ["whisper-*", "gpt-*-transcribe*"]
 notes = '''
-prompt is sample text the model imitates, not instructions. In speech-to-text.md read "Prompting" up to its streaming subsections; for gpt transcription models also "Add transcription context", for the kind of context prompt holds; for whisper-1 also "Using the prompt parameter" under "Improving reliability". The rest of the page is API usage.
-whisper-prompting-guide.md covers whisper-1 only. Read the prose between its code cells, which shows how the prompt steers spelling and style, and skip the code and its output.
+When writing prompt for any model in this family, read "Prompting" in speech-to-text.md; when the audio exceeds the size in the API notes, also "Longer inputs". For gpt transcription models, add the text and example prompt of "Add transcription context".
+For whisper-1, read the opening paragraph of "Using the prompt parameter" and its paragraph that begins "While it increases reliability", which gives the 224-token limit, and "Comparison with GPT prompting" in whisper-prompting-guide.md. To correct names, add the text and example prompts of "Pass names in the prompt to prevent misspellings"; to steer style or punctuation, the text of "Transcripts follow the style of the prompt".
+whisper-prompting-guide.md covers whisper-1 only. When transcribing in chunks, pass the end of each chunk's transcript as the next chunk's prompt, as "Prompting" describes.
 '''
 files = [
   { name = "speech-to-text.md", kind = "guide", url = "https://developers.openai.com/api/docs/guides/speech-to-text.md" },
@@ -96,8 +102,8 @@ files = [
 category = "asr"
 models = ["gemini-*-transcribe"]
 notes = '''
-The guide's custom_vocabulary is the tool's hotwords, and its language hints are language. In transcribe.md read only "Custom vocabulary" and "Best practices"; the rest is API usage and output parsing, and the API notes give the limits.
-To get both custom vocabulary and timings, which one call does not combine, run a plain transcription with hotwords and correct the timed transcript from it.
+For every task, read "Best practices" in transcribe.md. Add by call, reading each from its title to its first {% tabs %}: "Custom vocabulary" for names and terms or when passing hotwords; "Word-level timestamps" for a timed transcript; "Speaker diarization" with speakers=true; "Language detection and hints" when passing language.
+The guide's custom_vocabulary is hotwords, language_codes is language, diarization_mode is speakers, and timestamp_granularities ["word"] is granularity "word"; the API notes give the combinations one call cannot take. When the user gives the correct spellings, make one timed call and correct the spellings locally from theirs. When the model must recognize the names, first run transcribe_audio with hotwords, then the timed call.
 '''
 files = [
   { name = "transcribe.md", kind = "guide", url = "https://aistudio.google.com/docs/transcribe.md" },
@@ -107,10 +113,8 @@ files = [
 category = "asr"
 models = ["moss-transcribe-*"]
 notes = '''
-prompt replaces the default instruction, which is the Chinese "Timestamped Diarization (Default)" recipe. Write it from a recipe in prompts.md, all of which is short, in the language of the audio.
-For names and terms, use the "Hotword Hints" recipe, since the model reads them only from the prompt.
-transcribe_audio_with_timestamps and speakers=true read the timestamped segments of the default format, so use the default or the hotword recipe with them. "Speaker-Only Transcription" suits transcribe_audio alone.
-The recipes' mention of build_transcription_messages and subtitle tools refers to the repository's own scripts.
+For a timed transcript or speakers=true, write prompt from "Timestamped Diarization (Default)" in prompts.md, or from "Hotword Hints" when there are names and terms. For text with speaker marks only, use "Speaker-Only Transcription", or "Hotword Hints" when there are names and terms. Write the recipe in the language of the audio.
+The model's default instruction is the Chinese "Timestamped Diarization (Default)" recipe. Names and terms reach the model only through the word list in the "Hotword Hints" recipe; the API notes give the output format and hotwords support.
 '''
 files = [
   { name = "prompts.md", kind = "pe", url = "https://raw.githubusercontent.com/OpenMOSS/MOSS-Transcribe-Diarize/main/examples/prompts.md" },
@@ -122,8 +126,10 @@ files = [
 category = "tts"
 models = ["gpt-*-tts*", "tts-1*"]
 notes = '''
-Write instructions by prompting.md and voice-directions.md, starting from the template in sample-prompts.md that matches the use; read all three, which are short, except "Contents" and "Where to find copy/paste recipes". input holds the words to speak.
-The files refer to each other by their paths in OpenAI's speech skill.
+Check in the API notes that the model takes instructions. Write instructions from prompting.md: "Structure", "Specificity" and "Avoiding conflicts", adding "Pronunciation and names" for readings and "Pauses and pacing" for pauses or rhythm.
+Start from the template in sample-prompts.md that matches the use. Without one, use "Template" and "Best practices" in voice-directions.md, and for a particular delivery the closest example under "Examples (short)".
+To fix a result, read "Iterate deliberately" in prompting.md.
+The style direction is instructions, and the words to speak are input.
 '''
 files = [
   { name = "prompting.md", kind = "pe", url = "https://raw.githubusercontent.com/openai/skills/main/skills/.curated/speech/references/prompting.md" },
@@ -135,8 +141,9 @@ files = [
 category = "tts"
 models = ["gemini-*-tts"]
 notes = '''
-The guide's text is the tool's input, and its speech_metadata.style is instructions. Write both by prompting-guide.md, all of it except the JSON request at its top and "What's next". Each call speaks one turn in one voice.
-For a voice_design description, read only "Prompting best practices for Voice design" in voice-design.md; the rest of the page is API usage.
+For generate_speech, read in prompting-guide.md "Style field versus inline tags" and "Consistency across generations and what to avoid". Add by need "Pacing and pauses", "Prosody and pitch", "Emphasis" and "Vocal bursts and non-speech sounds", and "Backchannels and overlapping speech" for reactions in dialogue.
+For voice_design, read "Prompting best practices for Voice design" in voice-design.md.
+The guide's text is input, speech_metadata.style is instructions and voice_id is voice. Lasting traits of the voice go in the voice_design description, the speaking style of the passage in instructions, and pause, laugh and sigh tags in input beside the words they belong to, in the guide's syntax.
 '''
 files = [
   { name = "prompting-guide.md", kind = "guide", url = "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/text-to-speech/prompting-guide", select = "div.devsite-article-body" },
@@ -147,7 +154,8 @@ files = [
 category = "tts"
 models = ["doubao-seed-tts-*", "seed-tts-*"]
 notes = '''
-tts-2.0.md is published in Chinese only, with numbered sections. The tool sends instructions as the API's context_texts, which takes one text: either a voice instruction, written like the examples in 1.2, or the line said before the input, whose mood the speech carries on: read section 2's opening paragraph, before 2.1, and the examples in 2.2. Write either without the console's [# and ]; 1.1 and 2.1 show the console.
+tts-2.0.md is published in Chinese only; find its sections by number. For a voice instruction that sets emotion, dialect or pace, read the opening of section 1 and the examples in 1.2. To carry on the mood of the line said before the input, read the opening of section 2 and the examples in 2.2.
+The examples' [# and ] are console markup: put only the text inside them in instructions.
 '''
 files = [
   { name = "tts-2.0.md", kind = "guide", url = "https://docs.volcengine.com/docs/zh/doubao-voice/doubao-text-to-speech-20-capability-introduction.md" },
@@ -157,7 +165,8 @@ files = [
 category = "tts"
 models = ["speech-*"]
 notes = '''
-speech-t2a-http.md is the T2A API reference as one OpenAPI block. Search it for the request's text: property, whose description begins "The text to be converted into speech", and read only that description: line breaks, <#x#> pauses, inline pronunciation, and interjection tags for the models it names. Write that markup in input; options fields are in the API notes.
+In speech-t2a-http.md, under T2aV2Req, find the first text: property and read its description, which begins "The text to be converted into speech" in en and "需要合成语音的文本" in zh, up to the stream: property at the same level.
+Its line breaks, <#x#> pauses, inline pronunciation and the interjection tags of the models it names go directly in input.
 '''
 files = [
   { name = "speech-t2a-http.md", kind = "guide", url = { en = "https://platform.minimax.io/docs/api-reference/speech-t2a-http.md", zh = "https://platform.minimaxi.com/docs/api-reference/speech-t2a-http.md" } },
@@ -167,8 +176,9 @@ files = [
 category = "tts"
 models = ["indextts-*"]
 notes = '''
-The voice is cloned from reference_audio in every request, or from a voice uploaded to the server under the name given as voice.
-For emotion, read items 3 to 6 under "Python API", from "3. Adjust emotion intensity with `emo_alpha`" to "6. Emotion control with an explicit emotion description"; their infer arguments go in options as the API notes give. For readings of Chinese characters, read "Pronunciation Control" and write the Pinyin in input. The rest of the README is installation, serving and evaluation.
+For a voice cloned from reference audio, read "1. Voice cloning with a single reference audio" under "Python API". For emotion, choose one mechanism: emotion from the text itself, "5. Emotion control from the text itself (`use_emo_text`)"; a separate emotion description, "6. Emotion control with an explicit emotion description (`emo_text`)"; numeric emotions, "4. Emotion control with an emotion vector". To tune the chosen one's intensity, add "3. Adjust emotion intensity with `emo_alpha`". Find these by their full titles; the "# IndexTTS2" lines in the code blocks are comments.
+For readings of Chinese characters, read "Pronunciation Control" from "**IndexTTS2 — Pinyin:**" to the "IndexTTS-1.5 (Legacy)" heading.
+Emotion arguments go in options under extra_params, with the field names and values in the API notes; Pinyin goes in input.
 '''
 files = [
   { name = "README.md", kind = "guide", url = "https://raw.githubusercontent.com/index-tts/index-tts/main/README.md" },
@@ -180,11 +190,11 @@ files = [
 category = "video"
 models = ["minimax-h3", "minimax-h3-max"]
 notes = '''
-The files describe the structured prompt that MiniMax's prompt rewriter produces, and the inputs decide which to read. With no inputs, or with frames, read base-en.txt, all of it: no inputs is T2VA, first_frame I2VA, first_frame and last_frame FL2VA, last_frame alone L2VA. With reference_images, reference_videos or reference_audios, read ref-en.txt, all of it, and from base-en.txt only "4. How to Write the Three Shared Core Sections", whose formats ref-en.txt shares.
-Frame labels: <Picture 1> is first_frame, or last_frame when it is the only frame; <Picture 2> is last_frame.
-Reference labels count each list in order: <Picture N> the reference images, <Video N> the reference videos. Audio numbers go first to each reference video that has sound, in video order, then to the reference audios, so one video with sound and one audio file give <Audio 1> for the video's sound and <Audio 2> for the file. Define an audio label only when the prompt uses that audio.
-The shot count and timestamps fit seconds.
-MiniMax-H3-Max on the MiniMax API expands a prompt by default, so a plain description also works there. When you write the structure, turn expansion off with the option in the API notes.
+The files describe the structured prompt that MiniMax's prompt rewriter produces, and the inputs decide the mode: no inputs is T2VA, first_frame I2VA, first_frame and last_frame FL2VA, last_frame alone L2VA.
+In base mode, with no inputs or with frames only, read in base-en.txt: under "2. Final Prompt Structure", the current mode's item in 2.1, and 2.2; with frames, the one subsection under 3. for the mode (3.1 I2VA, 3.2 FL2VA, 3.3 L2VA); 4.1, 4.2, 4.3, 4.6 and 4.7, adding 4.4 for dialogue or singing and 4.5 for on-screen text; and the case for the mode under "5. Cases".
+In reference mode, with reference_images, reference_videos or reference_audios, read in ref-en.txt from its title through the opening of "2. Reference Labels and Definitions". Then read the subsections of section 2 for the inputs given: "2.1 `<Subject N>`" for visible subjects drawn from images or videos; "2.2 `<Picture N>`" with reference_images; "2.3 `<Video N>`" with reference_videos; "2.4 `<Audio N>`" with reference_audios or a reference video that has sound; "2.5 Visual and Audio Tracks from the Same Reference Video" when a reference video has sound. Then read from "3. `summary`" through "6. `overall_soundscape` and `non_diegetic_music`", stopping at the "7. Complete Example" heading; read that example only when the structure is still unclear after section 6. Also read the 4.x subsections of base-en.txt that the prompt uses.
+Frame labels: <Picture 1> is first_frame, or last_frame when it is the only frame; <Picture 2> is last_frame. Reference labels count each list in order: <Picture N> the reference images, <Video N> the reference videos. Audio numbers go first to each reference video that has sound, in video order (check its audio track with ffprobe), then to the reference audios. Define an audio label only when the prompt uses that audio.
+The shot count and timestamps fit seconds. MiniMax-H3-Max on the MiniMax API expands a prompt by default; when you write the full structure, turn expansion off with the option in the API notes.
 '''
 files = [
   { name = "base-en.txt", kind = "pe", url = "https://raw.githubusercontent.com/MiniMax-AI/MiniMax-H3/main/skills/h3-prompt-writing/references/base-en.txt" },
@@ -195,9 +205,11 @@ files = [
 category = "video"
 models = ["doubao-seedance-2-0*", "doubao-seedance-2.0*"]
 notes = '''
-Write the prompt by sd2-pe.md. @Image N, @Video N and @Audio N count reference_images, reference_videos and reference_audios in list order; frames need no label.
-sd2-pe.md is written for an agent that rewrites a user's prompt in an exchange. Skip "Role definition" / "角色定位", Step 0, the questions to the user in Step 3, and "Optimization" / "优化问题" and "Relevant principles" / "相关原则", which report the changes. Ask the user only when a missing detail would make the result unusable, pass the prompt text alone as prompt, and tell the user about substitutions in your reply.
-To fix a result, read the matching problem under "FAQ" / "常见问题" in prompt-guide.md, and the case closest to the task under "Appendix: Prompt examples" / "附录：提示词案例".
+The en and zh editions of sd2-pe.md have different structures. Write the first draft from sd2-pe.md.
+In zh, read "引用语法（统一标准）" when there are references; "任务分类（先判定，再选句式）"; "八大核心要素（进阶公式）"; "Step 1：任务类型与复杂度判定"; "Step 2：元素自检与素材映射（自动解析）" when there are references; "3.2 非关键缺失：八大要素 audit + 自动补全"; the opening of "Step 4：结构化重写输出", then by complexity "路径 A：简单视频" or "路径 B：复杂影视化场景"; "音频通道" for sound; "特殊字符规范（强制使用）"; "文字生成三模板" when the video shows text to render; and "强制约束（总览）".
+In en, read "Step 1: Intent and scenario determination"; "Step 2: Element self-check and asset mapping (automatic parsing)" when there are references; "Optimized prompt" under "Step 4: Structured output"; and "Mandatory constraints". Add the matching subsection under "Basic formula" in prompt-guide.md: "Omni reference" for references, "Video editing" for an edit, "Video extension" for an extension, "Combined tasks" for a combination.
+To fix a result, read the problem matching the defect under "FAQ" / "常见问题" in prompt-guide.md, and the case closest to the task under "Appendix: Prompt examples" / "附录：提示词案例".
+@图片N, @视频N and @音频N in zh, and @Image N, @Video N and @Audio N in en, count reference_images, reference_videos and reference_audios in list order; frames go in their parameters without a label. Pass only the rewritten prompt text as prompt, and tell the user in your reply what the rewrite filled in or replaced.
 '''
 files = [
   { name = "sd2-pe.md", kind = "pe", skill = "sd2-pe", url = { en = "https://arkdocs-en.tos-ap-southeast-1.volces.com/skills/.well-known/agent-skills/index.json", zh = "https://arkdocs.tos-cn-beijing.volces.com/skills/.well-known/agent-skills/index.json" } },
@@ -208,10 +220,11 @@ files = [
 category = "video"
 models = ["doubao-seedance-2-5*", "doubao-seedance-2.5*"]
 notes = '''
-Write the prompt by sd25-pe.md. Asset labels count reference_images, reference_videos and reference_audios in list order.
-Skip "Self-update before triggering" / "触发前的自升级", whose command updates a locally installed copy of that skill, "When to Use" / "适用场景" and "Compatibility And Runtime Notes". Skip "Asset Specification Preflight" / "素材规格预检" and "7. Apply Task Parameter Rules" / "7. 应用任务参数规则" as well: the API notes give the input limits and the parameters each task locks. Read "Aspect Ratio and Duration Compatibility Gate" / "画幅与时长兼容性闸门", which decides the task and the declaration it adds to the prompt.
-Under "Output Contract" / "输出合同", read "Default Delivery" / "默认交付", "Asset Reference Fidelity" / "素材引用保真" and the complete example. Pass only the media the prompt uses, so that 【Unused Assets】 has nothing to list and is left out. The asset, parameter and additional notes it appends after the prompt are for the user: put them in your reply, and set duration, aspect ratio and resolution in the tool parameters.
-To fix a result, read the matching problem under "FAQ" / "常见问题" in prompt-guide.md, and the case closest to the task under "Prompt examples" / "提示词案例". Its "Get the skill" / "获取 Skill" describes installing sd25-pe, and its JPG error problem concerns the API.
+Read in sd25-pe.md: "Non-Negotiable Principles" / "不可违反的原则"; the one subsection under "Input States" / "输入状态" that matches the current assets; under "Core Workflow" / "核心工作流", "1. Parse the User's Goal" / "1. 解析用户目标", adding "2. Compile Novels and Long Text" / "2. 编译小说和长文本" to adapt long text; with assets, "3. Inventory and Understand the Assets" / "3. 盘点和理解素材" and "4. Assign Asset Roles and Subject Mappings" / "4. 建立素材职责和主体映射", adding "5. Handle Mapping Confidence" / "5. 处理映射置信度" when a mapping is uncertain; "Aspect Ratio and Duration Compatibility Gate" / "画幅与时长兼容性闸门" under 6.; and "8. Apply the Template and Clean the Prompt" / "8. 套用模板并净化".
+Then read the one template that matches the single main task: "Basic Generation" / "基础生成" or "Generation with Reference Assets" / "带参考素材的生成", adding "Organizing Multiple Reference Assets" / "多素材组织" for several assets; for a video edit, the opening of "Video Editing Template" / "视频编辑模板", or its "Audio Editing" / "声音编辑" for a sound edit; "Video Extension Template" / "视频延长模板"; under "Keyframe Anchors" / "关键帧锚点", the matching one of "First Frame Plus Other References" / "首帧加其他参考", "First Frame, Last Frame, and Other References" / "首帧、尾帧加其他参考", "Controlling the Order of Multiple Keyframes" / "多关键帧顺序控制", "Storyboard Grids and Storyboards" / "宫格分镜与故事板" and "Blockout References and Rendering" / "白模参考与渲染"; or "Long Videos and Time Segments" / "长视频与时间段". Add the subsections of "Emotion, Cinematography, and Sound" / "情绪、摄影与声音" that the prompt uses.
+Under "Output Contract" / "输出合同", read "Default Delivery" / "默认交付" and "Asset Reference Fidelity" / "素材引用保真"; for a first complex multi-asset prompt, also the final prompt block of "Complete Input-to-Output Example" / "完整输入到输出示例". Finish with "Final Checklist" / "最终自检".
+To fix a result, read the matching item under "FAQ" / "常见问题" in prompt-guide.md and the closest case under "Prompt examples" / "提示词案例".
+@图片1, @视频1 and @音频1 in zh, and @Image1, @Video1 and @Audio1 in en, count reference_images, reference_videos and reference_audios in list order. Pass only the media the prompt uses, so 【未采用素材】 / 【Unused Assets】 has nothing to list and its line is omitted. Put the asset mapping and parameter notes in your reply to the user, and set duration, aspect ratio and resolution in the tool parameters.
 '''
 files = [
   { name = "sd25-pe.md", kind = "pe", skill = "sd25-pe", url = { en = "https://arkdocs-en.tos-ap-southeast-1.volces.com/skills/.well-known/agent-skills/index.json", zh = "https://arkdocs.tos-cn-beijing.volces.com/skills/.well-known/agent-skills/index.json" } },
@@ -222,9 +235,10 @@ files = [
 category = "video"
 models = ["gemini-omni-*"]
 notes = '''
-Write the prompt by prompt-guide.md, all of it except "Try Gemini Omni", and in omni.md only "Gemini Omni Flash prompt guide" with its subsections and "Best practices"; the rest of omni.md is API usage, and the API notes give its limits. video-gen-prompt-guide.md, written for Veo and Gemini Omni, explains subject, action, camera, lens, style, lighting and audio terms: read the sections the prompt needs, and skip "Safety filters" and "What's next".
-The tool writes the [# Sources ...] and [# References ...] declarations, so the prompt uses only the simple tags from "Using tags in prompts to set image and video roles": <FIRST_FRAME>, <LAST_FRAME>, <IMAGE_REF_N> for reference_images and <VIDEO_REF_N> for reference_videos, counting from 0. In the declarations' examples, Image1, Image2 count the frames first, then the reference images; Video1 counts the reference videos.
-Timing goes in the prompt.
+For a first draft, read "What to think about while writing prompts" in prompt-guide.md, and "Prompting the audio" and "Timing events" in omni.md, adding "Single scene" for a single shot.
+Add by task: with first_frame or last_frame, "Specify first and last frames"; with frames or reference media, the opening of "Using tags in prompts to set image and video roles" in omni.md and its "1. Simple tags (recommended)", up to the next heading at that level; to keep several assets consistent, "Keep your scene consistent"; to follow a complex motion, "Reference complex actions"; for camera work, "Direct your camera"; for an edit, "Edit iteratively" and "Prompts for editing" in omni.md; for an extension, "Extend scenes for longer storytelling" and "Prompts for extending a video" in omni.md; for text in the video, "Text rendering" and "Text in videos" in omni.md.
+To fix a result, read "Removing unwanted elements" in omni.md; where a term is missing, read one or two matching vocabulary sections of video-gen-prompt-guide.md.
+The prompt uses only the simple tags: <FIRST_FRAME>, <LAST_FRAME>, and <IMAGE_REF_N> for reference_images and <VIDEO_REF_N> for reference_videos, counting each list from 0. Timing and event times go in the prompt.
 '''
 files = [
   { name = "prompt-guide.md", kind = "guide", url = "https://deepmind.google/models/gemini-omni/prompt-guide/", select = "main#page-content" },
