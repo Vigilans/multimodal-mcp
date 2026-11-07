@@ -504,7 +504,10 @@ def build(config: Config) -> FastMCP:
                 str | None, Field(description="WIDTHxHEIGHT, for models that take a pixel size instead of aspect_ratio and resolution.")
             ] = None,
             resolution: Annotated[str | None, Field(description="Resolution tier, such as 720p.")] = None,
-            seconds: Annotated[str | None, Field(description="Duration in seconds, such as 5, within the model's range.")] = None,
+            seconds: Annotated[
+                int | None,
+                Field(description="Duration in whole seconds within the model's range in the API notes, such as 8."),
+            ] = None,
             options: Options = None,
         ) -> dict:
             """Submit a video generation job and return without waiting for the video.
@@ -530,7 +533,7 @@ def build(config: Config) -> FastMCP:
                 aspect_ratio=aspect_ratio,
                 size=size,
                 resolution=resolution,
-                seconds=seconds,
+                seconds=None if seconds is None else str(seconds),
                 options=options,
             )
             # Job bodies may carry the provider's model ID; get_video_job takes the model's name.
