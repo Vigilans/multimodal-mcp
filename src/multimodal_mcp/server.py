@@ -46,7 +46,7 @@ Quality = Annotated[str | None, Field(description="Rendering quality, for models
 AudioFile = Annotated[str, Field(description="Absolute path of the audio file.")]
 Language = Annotated[
     str | None,
-    Field(description="Language of the speech, in the format the API notes give, such as en or en-US. Omit it to let the model detect the language."),
+    Field(description="Speech language, in the format in the API notes, such as en or en-US. Omit to auto-detect."),
 ]
 AsrPrompt = Annotated[
     str | None,
@@ -125,7 +125,7 @@ def build(config: Config) -> FastMCP:
         elif default in names:
             omitted = f"Omit to use {default}, unless the call needs a capability that only another model has."
         else:
-            omitted = "Omit only when one model alone can serve the call; otherwise name the model."
+            omitted = "Omit only when a single model can serve the call; otherwise name the model."
         return Annotated[Literal[tuple(names)] | None, Field(description=f"Model from list_models. {omitted}")]
 
     # The tools of each category and the capabilities that put a model in each tool's enum (None: every model).
@@ -162,13 +162,12 @@ def build(config: Config) -> FastMCP:
     ) -> dict:
         """List the configured media models and the category defaults, for choosing a model.
 
-        Each model has its name to pass as model, which is the provider's model ID, or <provider>/<model ID> when
-        several providers serve the same model ID; its category, the user's description and its capabilities.
-        Capabilities name the calls a model can serve: image generate, edit, reference (generate_image with references)
-        and mask; asr text, segment and word (timestamp granularities), speaker and hotwords; tts voice (preset or
-        registered voice IDs), reference (reference_audio), timestamps and design (voice_design); video text, frames
-        (first_frame or last_frame) and reference (reference media); omni image and audio (the media the model reads).
-        It reads only the configuration; get_model_guide gives a model's API notes and prompt guide.
+        Each model has its name to pass as model (the provider's model ID, or <provider>/<model ID> when several
+        providers serve the same model ID), its category, the user's description and its capabilities. Capabilities
+        name the calls a model can serve. image: generate, edit, reference (generate_image with references), mask; asr:
+        text, segment and word (timestamp granularities), speaker, hotwords; tts: voice (preset or registered voice
+        IDs), reference (reference_audio), timestamps, design (voice_design); video: text, frames (first_frame or
+        last_frame), reference (reference media); omni: image, audio (the media the model reads).
         """
         return {
             "models": [
@@ -250,7 +249,7 @@ def build(config: Config) -> FastMCP:
             model: ImageModel = None,
             references: Annotated[
                 list[str] | None,
-                Field(description="Absolute paths of images whose subject or style the new image should follow."),
+                Field(description="Absolute paths, in order, of images whose subject or style the new image should follow."),
             ] = None,
             size: ImageSize = None,
             quality: Quality = None,
@@ -259,8 +258,8 @@ def build(config: Config) -> FastMCP:
         ) -> dict:
             """Generate new images from a prompt and save them to files.
 
-            Use it for any new image, including one that follows the subject or style of images passed as references;
-            use edit_image to change an existing image while keeping the rest of it. Returns the model name and the
+            Use for any new image, including one that follows the subject or style of images passed as references; use
+            edit_image to change an existing image while keeping its other parts. Returns the model name and the
             absolute paths of the saved images.
             """
             endpoint, model_id, name = choose("image", model, {"generate"} | ({"reference"} if references else set()))
@@ -293,7 +292,7 @@ def build(config: Config) -> FastMCP:
         ) -> dict:
             """Edit an existing image according to a prompt and save the results to files.
 
-            Use it when an image should change while the rest of it stays as it is; to make a new image that only
+            Use when an image should change while its other parts stay as they are; to make a new image that only
             borrows a subject or style, use generate_image with references. Returns the model name and the absolute
             paths of the saved images.
             """
@@ -318,9 +317,8 @@ def build(config: Config) -> FastMCP:
         ) -> dict:
             """Transcribe an audio file to text.
 
-            Use it when only the words matter; use transcribe_audio_with_timestamps for timings or speaker labels.
-            Saves the provider's response as a JSON file and returns the model name, the transcript text and the
-            file's path.
+            Use when only the words matter; use transcribe_audio_with_timestamps for timings or speaker labels. Saves
+            the provider's response as a JSON file and returns the model name, the transcript text and the file's path.
             """
             endpoint, model_id, name = choose("asr", model, {"text"} | ({"hotwords"} if hotwords else set()))
             raw, result = await endpoint.transcribe(
@@ -357,10 +355,10 @@ def build(config: Config) -> FastMCP:
         ) -> dict:
             """Transcribe an audio file with segment or word timestamps in seconds, optionally labeling speakers.
 
-            Use it for subtitles, alignment, cutting or speaker attribution; use transcribe_audio when only the text
-            matters. Writes {text, duration, segments: [{start, end, text, speaker?}], words: [{start, end, word,
-            speaker?}]} to a JSON file and the provider's response beside it; returns the text, both paths and the
-            segment and word counts. Read the JSON file for the timings.
+            Use for subtitles, alignment, cutting or speaker attribution; use transcribe_audio when only the text
+            matters. Writes {text, duration?, segments: [{start, end, text, speaker?}], words: [{start, end, word,
+            speaker?}]} to a JSON file, where either list may be empty, and the provider's response beside it; returns
+            the text, both paths and the segment and word counts. Read the JSON file for the timings.
             """
             needed = {granularity} | ({"speaker"} if speakers else set()) | ({"hotwords"} if hotwords else set())
             endpoint, model_id, name = choose("asr", model, needed)
@@ -403,9 +401,9 @@ def build(config: Config) -> FastMCP:
             ] = None,
             instructions: Annotated[str | None, Field(description="Performance or context direction; the API notes say how the model takes it.")] = None,
             response_format: Annotated[str | None, Field(description="Audio format, such as mp3 or wav.")] = None,
-            speed: Annotated[float | None, Field(description="Speaking speed multiplier; 1.0 is normal.")] = None,
+            speed: Annotated[float | None, Field(description="Speaking speed multiplier, for models that take one; 1.0 is normal.")] = None,
             timestamps: Annotated[
-                bool, Field(description="Also write segment and word timestamps to a JSON file beside the audio.")
+                bool, Field(description="Also write segment and word timestamps to a JSON file beside the audio, for models that return them.")
             ] = False,
             options: Options = None,
             output_path: OutputPath = None,
@@ -414,8 +412,8 @@ def build(config: Config) -> FastMCP:
 
             The voice is either voice, a preset or registered voice ID such as one from voice_design, or
             reference_audio, a sample the model imitates for this request only. input is spoken verbatim, so it holds
-            only the words to say. Returns the model name and the audio path, plus the path of a timestamps JSON file
-            when timestamps is true.
+            only the words to say. Returns the model name and the audio path, plus timestamps_path, a JSON file of the
+            timings, when the model returns them.
             """
             if not voice and not reference_audio:
                 raise ValueError("give voice or reference_audio")
@@ -459,7 +457,7 @@ def build(config: Config) -> FastMCP:
         ) -> dict:
             """Create a reusable voice from a description and save a preview clip.
 
-            Use it when no preset voice fits; afterwards pass the returned voice_id as voice to generate_speech, with a
+            Use when no preset voice fits; afterwards pass the returned voice_id as voice to generate_speech, with a
             model from the same provider. Returns the model name, the new voice ID and the preview's path.
             """
             endpoint, model_id, name = choose("tts", model, {"design"})
@@ -573,7 +571,7 @@ def build(config: Config) -> FastMCP:
         async def start_omni_agent(
             task: Annotated[
                 str,
-                Field(description="The question to answer and the absolute path of every source it concerns, with any constraints such as the timing precision needed or a tool-call budget."),
+                Field(description="The question to answer and the absolute path of every source it concerns, with any constraints such as timing precision or a tool-call budget."),
             ],
             model: OmniModel = None,
         ) -> dict:
@@ -582,8 +580,8 @@ def build(config: Config) -> FastMCP:
             The agent works in the background on the omni model: it reads files and runs shell commands, such as
             ffmpeg and ffprobe, in the server's working directory, and can call list_models, get_model_guide and the
             transcription tools. Wait for it with wait_omni_agents, then read its answer and tool calls with
-            get_omni_agent. Agents live in the server's memory, so a server restart loses them, running or not.
-            Returns the agent_id, run_id, status and model.
+            get_omni_agent. Agents live in server memory, so a server restart loses them, running or not. Returns the
+            agent_id, run_id, status and model.
             """
             _, _, name = choose("omni", model, set())
             return await agents.start(task, name)
@@ -597,11 +595,11 @@ def build(config: Config) -> FastMCP:
         ) -> dict:
             """Send an omni agent a follow-up message.
 
-            While the agent's run is going, the message joins that run, which adds it to the conversation before its
-            next model request: delivery is current_run, with a message_id whose state get_omni_agent reports. Once
-            the run has ended, the message starts a new run on the agent's whole conversation, which costs like the
-            first: delivery is new_run, with the new run_id. delivery is undelivered when the run the message waited
-            for was stopped or ended before it took messages. Returns the agent_id, run_id, status, model and delivery.
+            While the agent's run is active, the message joins that run and enters the conversation before the next
+            model request: delivery is current_run, with a message_id whose state get_omni_agent reports. Once the run
+            has ended, the message starts a new run on the agent's full conversation, billed like the first: delivery
+            is new_run, with the new run_id. delivery is undelivered when the run the message waited for was stopped or
+            ended before taking messages. Returns the agent_id, run_id, status, model and delivery.
             """
             return await agents.continue_(agent_id, message)
 
@@ -609,18 +607,18 @@ def build(config: Config) -> FastMCP:
         def get_omni_agent(
             agent_id: AgentId,
             offset: Annotated[
-                int, Field(ge=0, description="How many of the latest tool calls to skip; pass next_offset for older ones.")
+                int, Field(ge=0, description="Offset into the tool calls, counted from the latest; pass next_offset for older ones.")
             ] = 0,
         ) -> dict:
             """Get an omni agent's status, its answer or error, and a page of the tool calls it made.
 
             status is running, completed, failed or cancelled; output holds a completed run's answer, and error says
-            why a run failed or was cancelled. tool_calls lists up to 20 calls from all of the agent's runs, oldest
-            first, each with its tool_call_id, run_id, tool, args, state (running, completed, failed or interrupted)
-            and result, so shell commands show with their output. tool_calls_total counts them all; next_offset, when
-            set, gets the page before this one. A result over 4000 characters is cut, and result_path names the file
-            with all of it. messages gives the state of each message that joined a run: queued, in_history, or
-            undelivered when the run ended first.
+            why a run failed or was cancelled. tool_calls gives a page of up to 20 calls across the agent's runs, in
+            the order they were made, each with its tool_call_id, run_id, tool, args, state (running, completed, failed
+            or interrupted) and result, so shell commands show with their output. Offset 0 selects the latest page;
+            next_offset selects an older page. tool_calls_total is the total call count. A result over 4000 characters
+            is truncated, and result_path names the file with the full result. messages gives the state of each message
+            that joined a run: queued, in_history, or undelivered when the run ended first.
             """
             return agents.get(agent_id, offset)
 
@@ -640,7 +638,7 @@ def build(config: Config) -> FastMCP:
 
         @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False})
         async def stop_omni_agent(agent_id: AgentId) -> dict:
-            """Cancel an omni agent's current run, keeping the conversation it has so far.
+            """Cancel an omni agent's current run, keeping the conversation so far.
 
             Tool calls in progress are interrupted and their results lost; continue_omni_agent starts a new run from
             the conversation. A provider request in flight, such as a transcription, may still complete and be billed.
