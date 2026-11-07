@@ -222,7 +222,7 @@ capabilities = ["image", "audio"]  # https://aistudio.google.com/docs/openai §I
 # Self-hosted models served by vLLM or vLLM-Omni.
 
 [openai.models."Qwen/Qwen-Image-2.1"]
-capabilities = ["generate", "edit"]  # https://github.com/vllm-project/vllm-omni/blob/64903b8e30b6595e4018c66232abbbd806aa9dfd/vllm_omni/entrypoints/openai/protocol/images.py
+capabilities = ["generate", "edit", "reference"]  # https://github.com/vllm-project/vllm-omni/blob/64903b8e30b6595e4018c66232abbbd806aa9dfd/vllm_omni/entrypoints/openai/protocol/images.py; https://github.com/vllm-project/vllm-omni/blob/64903b8e30b6595e4018c66232abbbd806aa9dfd/vllm_omni/entrypoints/openai/api_server.py /v1/images/edits takes a list of images; src/multimodal_mcp/endpoints/openai.py OpenAI.generate_image sends references and edit images alike to images.edit
 image = [
   "size is WIDTHxHEIGHT.",  # https://github.com/vllm-project/vllm-omni/blob/64903b8e30b6595e4018c66232abbbd806aa9dfd/vllm_omni/entrypoints/openai/protocol/images.py §validate_size
   "options takes negative_prompt, seed, num_inference_steps (1-200), guidance_scale (0-20) and true_cfg_scale (0-20).",  # https://github.com/vllm-project/vllm-omni/blob/64903b8e30b6595e4018c66232abbbd806aa9dfd/vllm_omni/entrypoints/openai/protocol/images.py §ImageGenerationRequest
@@ -241,8 +241,9 @@ transcribe_audio_with_timestamps = [
 ]
 
 [openai.models."IndexTeam/IndexTTS-2"]
-capabilities = ["reference"]  # https://github.com/vllm-project/vllm-omni/blob/64903b8e30b6595e4018c66232abbbd806aa9dfd/vllm_omni/entrypoints/openai/tts_adapters/indextts2.py
+capabilities = ["voice", "reference"]  # https://github.com/vllm-project/vllm-omni/blob/64903b8e30b6595e4018c66232abbbd806aa9dfd/vllm_omni/entrypoints/openai/tts_adapters/indextts2.py: ref_audio, or a voice in uploaded_speakers; https://github.com/vllm-project/vllm-omni/blob/64903b8e30b6595e4018c66232abbbd806aa9dfd/vllm_omni/entrypoints/openai/api_server.py POST/GET /v1/audio/voices
 generate_speech = [
+  "Pass reference_audio to clone a voice from a local audio file, or pass voice only when the user names a speaker already uploaded to the server (there are no built-in preset voice names).",  # https://github.com/vllm-project/vllm-omni/blob/64903b8e30b6595e4018c66232abbbd806aa9dfd/vllm_omni/entrypoints/openai/tts_adapters/indextts2.py; https://github.com/vllm-project/vllm-omni/blob/64903b8e30b6595e4018c66232abbbd806aa9dfd/vllm_omni/entrypoints/openai/api_server.py /v1/audio/voices
   "instructions is unused; for emotion, pass options {\"extra_params\": {...}} with use_emo_text true (the emotion comes from emo_text, or from input without it), or emo_vector, eight intensities 0-1.2 in the order happy, angry, sad, afraid, disgusted, melancholic, surprised, calm; emo_alpha scales either.",  # https://github.com/vllm-project/vllm-omni/blob/64903b8e30b6595e4018c66232abbbd806aa9dfd/vllm_omni/entrypoints/openai/tts_adapters/indextts2.py §_INDEXTTS2_EMOTION_KEYS; vllm_omni/model_executor/models/indextts2/indextts2_talker.py; https://github.com/index-tts/index-tts README §Python API 3-6: emo_vector order
   "response_format: mp3 (default), wav, pcm, flac or opus; speed: 0.25-4.0.",  # https://github.com/vllm-project/vllm-omni/blob/64903b8e30b6595e4018c66232abbbd806aa9dfd/vllm_omni/entrypoints/openai/protocol/audio.py §OpenAICreateSpeechRequest: formats and speed range; the openai adapter requests mp3 when response_format is unset
 ]
