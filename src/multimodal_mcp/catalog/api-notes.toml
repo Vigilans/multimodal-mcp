@@ -129,7 +129,7 @@ capabilities = ["text", "segment", "word", "speaker"]  # https://platform.minima
 asr = [
   "prompt and hotwords are unsupported.",  # src/multimodal_mcp/endpoints/minimax.py MiniMax.transcribe; https://platform.minimaxi.com/docs/api-reference/speech-to-text has no such fields
   "language: a BCP-47 tag such as en-US; omit it for mixed-language audio.",  # https://platform.minimaxi.com/docs/api-reference/speech-to-text §language (header)
-  "Audio up to 500 s and 50 MB in wav, aiff, flac, m4a, mp3, aac, opus or ogg; convert long WAV to mono 16 kHz or a compressed format.",  # https://platform.minimaxi.com/docs/api-reference/speech-to-text §file
+  "Audio up to 500 s and 50 MB in wav, aiff, flac, m4a, mp3, aac, opus or ogg.",  # https://platform.minimaxi.com/docs/api-reference/speech-to-text §file
 ]
 transcribe_audio_with_timestamps = [
   "Word timestamps are per character for Chinese.",  # https://platform.minimaxi.com/docs/api-reference/speech-to-text §timestamp_level

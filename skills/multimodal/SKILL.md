@@ -1,48 +1,61 @@
 ---
 name: multimodal
-description: Generate or edit images, transcribe audio, synthesize speech, design voices, and generate videos through the multimodal MCP server's configured models. Use when the user asks for any of these and the multimodal tools (list_models, generate_image, edit_image, transcribe_audio, transcribe_audio_with_timestamps, generate_speech, voice_design, generate_video, get_video_job) are available.
+description: Use when the user asks to generate or edit an image, transcribe audio or make subtitles, synthesize speech or design a voice, or generate a video, and the multimodal MCP server's tools are available.
 ---
 
 # Multimodal
 
-The multimodal MCP server exposes media models configured by the user. A tool exists only when some configured model can perform it.
+Work through these steps in order. Each step ends with the condition to meet before the next.
 
-## Choosing a model
+## 1. Prepare
 
-1. If the user names a model, pass it as `model`.
-2. Otherwise call `list_models` (optionally with `category` or `capability`) to see each model's description, capabilities, and the category default. Pick by what the request needs and the descriptions; list order carries no preference.
-3. You may omit `model`: the server then uses the only model capable of the call, or the category default. When several capable models remain and none is the default, it returns them; choose by description, or ask the user when the descriptions do not settle it.
-4. If a call fails, report the error; do not retry with another model unless the user asks.
+Use the model the user names, or the default from the tool's `model` parameter. When choosing among several, call `list_models` and choose by description and capabilities, preferring the category default when several fit. For each model you will call, call `get_model_guide` once per context; locate each reference file's heading lines and named anchors with one `search_files` call or `grep -n`, and read the sections its notes name for the task by line range with `offset` and `limit`.
 
-## Results
+- A model without a family has API notes only: write from them and the no-family branch in step 2.
+- A family without files has notes only: write from them.
+- When a file's status is missing, write from the notes and API notes, and tell the user which file is missing.
 
-Tools save results to files and return their paths. By default files go to a dated cache directory outside the project. When the result belongs to the project, pass an absolute `output_path` inside the workspace, or copy the file there afterwards. Tell the user where each result is.
+Done when you have checked the API notes entries that apply to this call, read the available sections the notes name for the task by line range, and noted any missing reference file.
 
-Input files (images to edit, audio to transcribe, video references) must be absolute paths, or URLs and asset URIs where the tool's model notes allow them.
+## 2. Write
 
-## Images
+Write each prompt from the sections you read. Ask the user only when a missing detail would make the result unusable.
 
-Image generation in this workflow goes through `generate_image` and `edit_image` only, not a host's built-in image tool or image CLI.
+- **Generation with a model without a family:** write full sentences about what appears and happens: subject, setting, composition, lighting and style. For a brief request, add what makes the result usable, such as composition, intended use and a concrete setting. Describe what should be present. For a video, give each shot one camera move and one main action, and say what should be heard.
+- **Transcription:** when the audio exceeds the size or duration limit in the API notes, when parts need merging, or when the result becomes subtitles or a per-word file, follow [references/asr.md](references/asr.md).
+- **Speech:** for `reference_audio`, use clear single-speaker audio without music or heavy reverb; before imitating a named third party's real voice, confirm consent when unknown.
 
-Write prompts as a concrete description of the final image:
+Done when every prompt meets all of these:
 
-- Subject and action first, then setting, composition and framing, lighting, style or medium, and color.
-- State exact text to render in quotes, and where it appears.
-- For edits (`edit_image`), say what to change and what must stay unchanged. To make a new image that follows a subject or style, pass the images as `references` to `generate_image`.
-- Put the required aspect ratio or dimensions in `size` when the model supports it.
+- Every detail the user gave is kept, and additions are limited to what makes the result usable.
+- Text to render or speak is verbatim, in its original language.
+- Each input medium is named by its position and role, using the labels in the notes.
+- Size, aspect ratio, duration and similar settings are in tool parameters, or in the prompt where the API notes require.
+- Any question to the user concerns a detail needed to make the result usable.
 
-## Transcription
+## 3. Run
 
-`transcribe_audio` returns the transcript text. When timing matters, use `transcribe_audio_with_timestamps` with `granularity` `segment` (phrases, subtitles) or `word` (alignment, cutting), and `speakers: true` to label speakers. It returns the text, counts, and the path of a JSON file holding the timestamps in seconds; read that file for the timings. `hotwords` lists names and terms the recognizer should favor.
+Call the tools for each requested deliverable and its prerequisite steps, such as designing a voice before speaking with it, or transcribing each part of a long recording. Poll each video job until it completes or fails.
 
-## Speech
+Done when each deliverable has a result file or a reported error, and each submitted video job has completed or failed.
 
-`generate_speech` speaks with a preset or registered `voice` ID, or imitates a `reference_audio` sample sent with the request. `timestamps: true` also writes segment and word timings beside the audio. `voice_design` creates a reusable voice ID from a description and saves a preview clip; pass that ID as `voice` afterwards.
+## 4. Check and fix
 
-## Video
+Check each result against the request:
 
-`generate_video` submits a job and returns its ID. Poll `get_video_job` with the same `model` until `status` is `completed` or `failed`; the completed call downloads the video and returns its path. Generation can take minutes, so wait between polls.
+- **Images:** open them and compare the subject, style, composition, exact text, and everything that had to stay unchanged.
+- **Videos:** extract one frame each from the start, middle and end, such as `ffmpeg -ss 3 -i clip.mp4 -frames:v 1 middle.png`, and open them; use `ffprobe` for the duration and resolution.
+- **Transcripts:** read the returned JSON, and check names, terms and the requested fields.
 
-`first_frame` and `last_frame` pin the opening and closing image; pass the same path to both for a loop. `reference_images`, `reference_videos` and `reference_audios` supply subjects, style, motion or sound the video should follow without appearing as literal frames. Within each list, the Nth item is the Nth of its type when the prompt refers to references.
+Fix by the kind of problem:
 
-Model-specific request fields go in `options`.
+- **Fixable without the model:** correct a spelling the user gave, or convert a format, in the existing result. When the result lacks a field the model does not return, such as speaker labels, or the input is placeholder test media, deliver the result and say so.
+- **A generation defect the model can fix:** read the fixing sections the notes name, then make at most one follow-up call for that deliverable with the same model: change one condition, restate what must stay unchanged, and say what it changed. Ask the user before generating further or switching models.
+
+Done when each result has been inspected, any local or single model correction has been checked, and each remaining gap is reported.
+
+## 5. Deliver
+
+Results stay in the cache unless they belong to the project. For project files, pass an absolute `output_path` in the workspace or copy the file there under a new name such as `hero-v2.png`; replace an existing file only when the user asked for the replacement. Report each file's path and model, and the final prompt when it differs from what the user wrote. When a requested field, such as speakers, timings or text, is absent from the result, say so.
+
+Done when every file is where the user asked, and the reply gives its path, model, changed prompt and any missing field.
