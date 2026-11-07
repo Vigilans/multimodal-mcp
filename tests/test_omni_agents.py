@@ -167,7 +167,7 @@ async def test_get_saves_a_long_result_to_a_file(omni):
 
 
 async def test_shell_commands_run_in_the_working_directory_with_ffmpeg(omni):
-    done = await omni.finish(await omni.start("shell command -v ffmpeg ffprobe; pwd"))
+    done = await omni.finish(await omni.start("shell command -v ffmpeg; command -v ffprobe; pwd"))
     lines = [line for line in done["tool_calls"][0]["result"].splitlines() if line.strip()]
     assert any(line.endswith(("ffmpeg", "ffmpeg.exe")) for line in lines)
     assert any(line.endswith(("ffprobe", "ffprobe.exe")) for line in lines)
