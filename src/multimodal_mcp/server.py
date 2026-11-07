@@ -19,22 +19,13 @@ INSTRUCTIONS = """\
 Generate and edit images, transcribe audio, synthesize speech, design voices, generate videos and analyze media with \
 the media models the user configured.
 
-- Settle the model before writing the prompt; to choose among models, call list_models(category=...).
-- Before calling a model, call get_model_guide for it once per context. It returns the model's API notes (accepted \
-values, input limits and options, which differ by model) and its family's prompt guide: notes on which sections of \
-the vendor's reference files to read, with the files' paths. Read only those sections before writing the prompt. \
-For another model of a family whose guide is still in your context, pass prompt_guide=false.
+- Settle the model first, calling list_models when choosing among several. For each model you will call, call \
+get_model_guide once per context and read the sections its notes name for the task before writing its prompt.
+- Calls cost money or GPU time: produce what the user asked for, without unrequested variants.
+- When a call fails, report the error; switch models only with the user's agreement. Model selection errors \
+list the models that can serve the call.
 - If a skill named multimodal is available, read it before writing prompts; it covers choosing models, writing \
-prompts and checking results.
-- Calls cost money or GPU time: produce what the user asked for, without variants they did not ask for.
-- When a call fails, report the error instead of switching models on your own; errors about the model choice list the \
-models that can serve the call.
-- Results are files. Tools save them under ~/.cache/multimodal-mcp unless output_path gives an absolute path, and \
-return the paths. Inputs are absolute file paths, or URLs and asset URIs where the API notes allow them.
-- Video generation is asynchronous: poll get_video_job with the id and model from generate_video, waiting between \
-checks, until the job completes or fails.
-- Omni agents analyze images, audio and video in the background: start_omni_agent returns an agent_id at once, \
-wait_omni_agents waits until an agent's run ends, and get_omni_agent gives its answer and the tool calls it made.
+prompts, checking results and delivering them.
 """
 # Tools that send requests to a provider's API and save the results as new files.
 PROVIDER_API_ANNOTATIONS = {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True}
