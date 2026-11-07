@@ -1,8 +1,8 @@
 # API notes for the configured models, which get_model_guide returns: what each call accepts and does. Notes cover
 # parameter values and ranges, required and unsupported parameters, input formats, sizes, counts and durations, inputs
-# that cannot be combined, options fields, output formats, and side effects such as billing or retention. How to write
-# a prompt (structure, reference labels, markup, wording, length) belongs in prompt-guides.toml and the vendor
-# references it lists.
+# that cannot be combined, options fields, output formats, and side effects such as billing or retention; a character
+# or token limit is an API note. How to write a prompt (structure, reference labels, markup, wording, length)
+# belongs in prompt-guides.toml and the vendor references it lists.
 # [<endpoint>] notes apply to every model on that endpoint. [<endpoint>.models.<name>] notes apply to one model, or
 # to a family whose models share them: <name> is the vendor's standard API name without its date version, a
 # self-hosted model's Hugging Face repo ID, or a glob over a family's names, and aliases lists the model's other
@@ -10,18 +10,20 @@
 # lists its own.
 # A configured model takes the first entry whose <name> or an alias matches it as a glob, ignoring case and anything
 # up to the last "/", with or without a trailing date version (-YYMMDD or -YYYY-MM-DD).
-# Notes are keyed by a tool, or by a category for all of that category's tools. Each note's comment, and the comment
-# on capabilities, gives its source: a doc URL and section, source code at a pinned version, or the observed error.
+# Notes are keyed by a tool, or by a category when shared across that category's tools. Each note's comment, and the
+# comment on capabilities, gives its source: a doc URL and section, source code at a pinned version, or the observed error.
 
 [ark]
 image = [
   "Input images: jpeg, png, webp, bmp, tiff, gif, heic or heif, each up to 30 MB.",  # https://www.volcengine.com/docs/82379/1541523 §image: requirements for each input image
+  "quality is unsupported.",  # src/multimodal_mcp/endpoints/ark.py Ark.generate_image
 ]
 asr = [
   "language, prompt, hotwords and speakers are unsupported.",  # src/multimodal_mcp/endpoints/ark.py Ark.transcribe
 ]
 generate_video = [
   "Frames and references cannot be combined in one request.",  # https://ark.volcengine.com/region:cn-beijing/docs/ark/create-video-generation-task-api §content.role: first frame, first and last frames, and all-modal reference are three mutually exclusive scenarios
+  "size is unsupported; use aspect_ratio and resolution.",  # src/multimodal_mcp/endpoints/ark.py Ark.generate_video
   "Reference videos must be public URLs or asset:// IDs.",  # https://ark.volcengine.com/region:cn-beijing/docs/ark/create-video-generation-task-api §content.video_url.url: a video URL or an asset ID; observed error: InvalidParameter ... reference_video must be provided as a web url
   "Requests are capped at 64 MB and local files are sent as base64, so pass large media as URLs or asset:// IDs.",  # https://ark.volcengine.com/region:cn-beijing/docs/ark/create-video-generation-task-api §content.image_url.url, §content.audio_url.url: request body at most 64 MB, no base64 for large files
 ]
@@ -33,7 +35,7 @@ generate_video = [
   "Frames: first_frame alone or with last_frame.",  # https://ark.volcengine.com/region:cn-beijing/docs/ark/create-video-generation-task-api §content.role: first frame, or first and last frames
   "References: up to 9 images, 3 videos and 3 audios; audio needs at least one reference image or video.",  # https://ark.volcengine.com/region:cn-beijing/docs/ark/create-video-generation-task-api §content.image_url.url, §content.video_url.url, §content.audio_url.url: Seedance 2.0 series limits; audio cannot be the only reference
   "Each reference video or audio runs 2-15 s, with at most 15 s in total per type.",  # https://ark.volcengine.com/region:cn-beijing/docs/ark/create-video-generation-task-api §content.video_url.url, §content.audio_url.url: Seedance 2.0 series durations
-  "Reference images and videos showing real human faces are rejected, except this account's Seedance outputs from the last 30 days, asset:// virtual avatars and authorized material.",  # https://ark.volcengine.com/region:cn-beijing/docs/ark/create-video-generation-task-api §content: real human faces in reference images and videos are unsupported, with the listed exceptions
+  "Reference images and videos showing real human faces must be this account's Seedance outputs from the last 30 days, asset:// virtual avatars or authorized material.",  # https://ark.volcengine.com/region:cn-beijing/docs/ark/create-video-generation-task-api §content: permitted sources for real human faces in reference images and videos
   "seconds: 4-15, or -1 to let the model choose.",  # https://ark.volcengine.com/region:cn-beijing/docs/ark/create-video-generation-task-api §duration
   "resolution: 480p, 720p (default), 1080p or 4k; aspect_ratio: 16:9, 4:3, 1:1, 3:4, 9:16, 21:9 or adaptive (default).",  # https://ark.volcengine.com/region:cn-beijing/docs/ark/create-video-generation-task-api §resolution, §ratio
   "Sound is generated by default; options {\"generate_audio\": false} makes the video silent.",  # https://ark.volcengine.com/region:cn-beijing/docs/ark/create-video-generation-task-api §generate_audio
@@ -45,7 +47,7 @@ generate_video = [
   "Frames: first_frame alone or with last_frame; a last_frame of another aspect ratio is cropped to the first frame's.",  # https://ark.volcengine.com/region:cn-beijing/docs/ark/create-video-generation-task-api §content.role: first frame, first and last frames
   "References: up to 30 images, 10 videos and 10 audios, at most 50 in all; audio may be the only reference.",  # https://ark.volcengine.com/region:cn-beijing/docs/ark/create-video-generation-task-api §content.image_url.url, §content.video_url.url, §content.audio_url.url: Seedance 2.5 limits; sd25-pe §Asset Specification Preflight: 50 assets in all
   "Each reference video runs 2-30 s, or 4-30 s for a video to edit, and each reference audio 2-30 s, with at most 30 s in total per type.",  # https://ark.volcengine.com/region:cn-beijing/docs/ark/create-video-generation-task-api §content.video_url.url, §content.audio_url.url: Seedance 2.5 durations
-  "Reference images and videos showing real human faces are rejected, except this account's Seedance outputs from the last 30 days, asset:// virtual avatars and authorized material.",  # https://ark.volcengine.com/region:cn-beijing/docs/ark/create-video-generation-task-api §content: real human faces in reference images and videos are unsupported, with the listed exceptions
+  "Reference images and videos showing real human faces must be this account's Seedance outputs from the last 30 days, asset:// virtual avatars or authorized material.",  # https://ark.volcengine.com/region:cn-beijing/docs/ark/create-video-generation-task-api §content: permitted sources for real human faces in reference images and videos
   "seconds: 4-30, or -1 (default) to let the model choose; resolution: 480p, 720p (default) or 1080p; aspect_ratio: 16:9, 4:3, 1:1, 3:4, 9:16, 21:9 or adaptive (default).",  # https://ark.volcengine.com/region:cn-beijing/docs/ark/create-video-generation-task-api §duration, §resolution, §ratio
   "With frames the aspect ratio follows first_frame. Editing or extending a reference video keeps its aspect ratio, and editing also keeps its length, up to about 0.4 s shorter; these tasks take no aspect_ratio, and editing takes no seconds.",  # https://ark.volcengine.com/region:cn-beijing/docs/ark/create-video-generation-task-api §ratio: Seedance 2.5 adaptive only for editing, extension and frames; §duration: editing only -1
   "The model infers whether a reference task generates, edits or extends from the media and prompt, and fails the job when the parameters do not fit that task; options {\"omni_reference_task_type\": \"reference\"}, \"edit\" or \"extend\" checks that task's limits on submission instead.",  # https://ark.volcengine.com/region:cn-beijing/docs/ark/create-video-generation-task-api §omni_reference_task_type: InvalidParameter.TaskTypeConstraint, TaskTypeMismatch
@@ -77,9 +79,11 @@ capabilities = ["text", "segment", "word"]  # src/multimodal_mcp/endpoints/ark.p
 image = [
   "Prompt up to 1,500 characters.",  # https://platform.minimaxi.com/docs/api-reference/image-generation-t2i §prompt
   "references are portrait subjects, as JPG or PNG under 10 MB.",  # https://platform.minimaxi.com/docs/api-reference/image-generation-i2i §subject_reference
+  "quality is unsupported.",  # src/multimodal_mcp/endpoints/minimax.py MiniMax.generate_image
 ]
 generate_video = [
   "Frames and references cannot be combined in one request.",  # https://platform.minimaxi.com/docs/api-reference/video-generation-v2-create §content: image-to-video and multimodal reference-to-video are mutually exclusive
+  "size is unsupported; use aspect_ratio and resolution.",  # src/multimodal_mcp/endpoints/minimax.py MiniMax.generate_video
   "resolution and seconds are required.",  # https://platform.minimaxi.com/docs/api-reference/video-generation-v2-create §VideoGenerationV2Req.required
   "Text-to-video needs aspect_ratio 21:9, 16:9, 4:3, 1:1, 3:4 or 9:16; with frames the ratio follows the image.",  # https://platform.minimaxi.com/docs/api-reference/video-generation-v2-create §ratio
   "References: up to 9 images, 3 videos and 3 audios; each video or audio runs 2-15 s, with at most 15 s in total per type.",  # https://platform.minimaxi.com/docs/api-reference/video-generation-v2-create §content: input media limits
@@ -135,6 +139,14 @@ capabilities = ["voice", "timestamps", "design"]  # https://platform.minimaxi.co
 [minimax.models."speech-2.8-turbo"]
 capabilities = ["voice", "timestamps", "design"]  # https://platform.minimaxi.com/docs/api-reference/speech-t2a-http §voice_setting.voice_id, §subtitle_enable; https://platform.minimaxi.com/docs/api-reference/voice-design-design
 
+[gemini]
+image = [
+  "quality is unsupported.",  # src/multimodal_mcp/endpoints/gemini.py Gemini.generate_image
+]
+generate_video = [
+  "size is unsupported; use aspect_ratio and resolution.",  # src/multimodal_mcp/endpoints/gemini.py Gemini.generate_video
+]
+
 [gemini.models."gemini-omni-1.1-flash"]
 capabilities = ["text", "frames", "reference"]  # https://ai.google.dev/gemini-api/docs/omni §Using tags in prompts to set image and video roles
 generate_video = [
@@ -166,7 +178,8 @@ transcribe_audio = [
   "hotwords: up to 1,000 terms.",  # https://ai.google.dev/gemini-api/docs/transcribe §Limitations
 ]
 transcribe_audio_with_timestamps = [
-  "Audio up to 30 minutes, and hotwords are rejected.",  # https://ai.google.dev/gemini-api/docs/transcribe §Limitations
+  "Audio up to 30 minutes.",  # https://ai.google.dev/gemini-api/docs/transcribe §Limitations
+  "hotwords cannot be combined with timestamps or speakers.",  # src/multimodal_mcp/endpoints/gemini.py Gemini.transcribe; https://ai.google.dev/gemini-api/docs/transcribe §Limitations
   "Up to 8 speakers; 3 or more is experimental.",  # https://ai.google.dev/gemini-api/docs/transcribe §Limitations
 ]
 
@@ -175,10 +188,17 @@ capabilities = ["voice", "design"]  # https://ai.google.dev/gemini-api/docs/spee
 generate_speech = [
   "voice: a prebuilt voice such as Kore, Puck or Charon, a Voice Library voice, or a voice_ ID from voice_design.",  # https://ai.google.dev/gemini-api/docs/speech-generation §Voice options
   "response_format: wav (default), l16 (raw PCM), mulaw or alaw.",  # https://ai.google.dev/gemini-api/docs/speech-generation §Audio output formats
+  "speed is unsupported; ask for the pace in instructions.",  # src/multimodal_mcp/endpoints/gemini.py Gemini.synthesize
+  "reference_audio and timestamps are unsupported.",  # src/multimodal_mcp/endpoints/gemini.py Gemini.synthesize; capabilities above
 ]
 voice_design = [
-  "The preview is generated from the description, and Gemini assigns the voice ID.",  # https://ai.google.dev/gemini-api/docs/voice-design §How Voice design works
+  "The preview is generated from the description, and Gemini assigns the voice ID; preview_text and voice_id are unsupported.",  # https://ai.google.dev/gemini-api/docs/voice-design §How Voice design works; src/multimodal_mcp/endpoints/gemini.py Gemini.design_voice
   "Voices are kept for a year after last use, up to 200 per project.",  # https://ai.google.dev/gemini-api/docs/voice-design §Manage your voices
+]
+
+[openai]
+transcribe_audio_with_timestamps = [
+  "speakers=true cannot be combined with granularity word; speaker labels come with segment timestamps.",  # src/multimodal_mcp/endpoints/openai.py OpenAI.transcribe: diarized_json has no word timestamps
 ]
 
 [openai.models."gpt-image-2.5-sunburst"]
@@ -231,7 +251,7 @@ image = [
 [openai.models."OpenMOSS-Team/MOSS-Transcribe-Diarize"]
 capabilities = ["text", "segment", "speaker"]  # https://github.com/vllm-project/vllm/blob/7853700d4cdc2b84c728c840114ed42cda7454a7/vllm/model_executor/models/moss_transcribe_diarize.py §parse_verbose_transcript, §parse_diarized_transcript
 asr = [
-  "prompt is the transcription instruction and replaces the default one, which asks for [start][S01]text[end] segments; hotwords is unused.",  # https://github.com/vllm-project/vllm/blob/7853700d4cdc2b84c728c840114ed42cda7454a7/vllm/model_executor/models/moss_transcribe_diarize.py §DEFAULT_MOSS_TRANSCRIBE_DIARIZE_PROMPT, §get_generation_prompt: only request_prompt reaches the model
+  "prompt is the transcription instruction and replaces the default one, which asks for [start][S01]text[end] segments; hotwords is unsupported.",  # https://github.com/vllm-project/vllm/blob/7853700d4cdc2b84c728c840114ed42cda7454a7/vllm/model_executor/models/moss_transcribe_diarize.py §DEFAULT_MOSS_TRANSCRIBE_DIARIZE_PROMPT, §get_generation_prompt: only request_prompt reaches the model
 ]
 transcribe_audio = [
   "The transcript marks each segment as [start][S01]text[end]; for clean speaker segments, use transcribe_audio_with_timestamps with speakers=true.",  # https://github.com/vllm-project/vllm/blob/7853700d4cdc2b84c728c840114ed42cda7454a7/vllm/model_executor/models/moss_transcribe_diarize.py §parse_diarized_transcript
@@ -253,5 +273,7 @@ capabilities = ["text", "frames", "reference"]  # https://github.com/vllm-projec
 generate_video = [
   "Text-to-video needs aspect_ratio 21:9, 16:9, 4:3, 1:1, 3:4 or 9:16; with frames the ratio follows the image, and with references it defaults to 16:9.",  # https://github.com/vllm-project/vllm-omni/blob/64903b8e30b6595e4018c66232abbbd806aa9dfd/vllm_omni/entrypoints/openai/protocol/videos.py §aspect_ratio
   "Reference videos and audios run 2-15 s each.",  # https://github.com/vllm-project/vllm-omni/blob/64903b8e30b6595e4018c66232abbbd806aa9dfd/vllm_omni/model_executor/models/minimax_h3/reference_video.py
+  "resolution is unsupported; use aspect_ratio or size.",  # src/multimodal_mcp/endpoints/openai.py OpenAI.generate_video
+  "seconds is a positive whole number.",  # https://github.com/vllm-project/vllm-omni/blob/64903b8e30b6595e4018c66232abbbd806aa9dfd/vllm_omni/entrypoints/openai/protocol/videos.py §SecondStr
   "Fields beyond the tool parameters go in options under extra_params.",  # https://github.com/vllm-project/vllm-omni/blob/64903b8e30b6595e4018c66232abbbd806aa9dfd/vllm_omni/entrypoints/openai/protocol/videos.py §extra_params
 ]
