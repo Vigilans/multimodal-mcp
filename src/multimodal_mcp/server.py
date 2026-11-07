@@ -493,7 +493,7 @@ def build(config: Config) -> FastMCP:
             ] = None,
             reference_videos: Annotated[
                 list[str] | None,
-                Field(description="Videos whose subjects, motion or camera work the video should follow."),
+                Field(description="Videos whose subjects, motion or camera work the video should follow, or the video to edit or extend."),
             ] = None,
             reference_audios: Annotated[
                 list[str] | None,
@@ -503,7 +503,7 @@ def build(config: Config) -> FastMCP:
             size: Annotated[
                 str | None, Field(description="WIDTHxHEIGHT, for models that take a pixel size instead of aspect_ratio and resolution.")
             ] = None,
-            resolution: Annotated[str | None, Field(description="Resolution tier, such as 720p.")] = None,
+            resolution: Annotated[str | None, Field(description="Resolution tier, such as 720p, for models that take one.")] = None,
             seconds: Annotated[
                 int | None,
                 Field(description="Duration in whole seconds within the model's range in the API notes, such as 8."),
@@ -515,8 +515,10 @@ def build(config: Config) -> FastMCP:
             The video can come from the prompt alone, open or close on first_frame and last_frame images, or follow
             reference images, videos and audios for subjects, style, motion or sound; the API notes say which inputs
             each model accepts and combines. Media inputs are absolute paths, or URLs and asset URIs (such as asset://ID)
-            where the model's API accepts them. Jobs usually take minutes: poll get_video_job with the returned id and
-            model until the job completes or fails. Returns the provider's job, including its id, and the model name.
+            where the model's API accepts them. Jobs usually take minutes: poll get_video_job with video_id set to the
+            returned id and the same model until the job completes or fails. When the job completes, get_video_job saves
+            the video; pass output_path to get_video_job. Returns the provider's job, including its id, and the model
+            name.
             """
             needed = ({"frames"} if first_frame or last_frame else set()) | (
                 {"reference"} if reference_images or reference_videos or reference_audios else set()
@@ -547,9 +549,9 @@ def build(config: Config) -> FastMCP:
         ) -> dict:
             """Check a job from generate_video and download the video once it is done.
 
-            status is queued, running, completed or failed; while the job is queued or running, wait a while before
-            checking again. When it is completed, the video is saved and its path returned with the provider's job;
-            when it failed, the job carries the provider's error.
+            status is queued, running, completed or failed; while the job is queued or running, wait about 30 seconds
+            before checking again. When completed, the video is saved and its path returned with the provider's job;
+            when failed, the job carries the provider's error.
             """
             video_model = models["video"][model]
             job, status, data = await endpoints[video_model.provider].get_video(video_model.model, video_id)
