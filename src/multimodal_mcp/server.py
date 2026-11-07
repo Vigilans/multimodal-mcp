@@ -32,7 +32,7 @@ PROVIDER_API_ANNOTATIONS = {"readOnlyHint": False, "destructiveHint": False, "id
 
 OutputPath = Annotated[
     str | None,
-    Field(description="Absolute path for the result file. Defaults to a dated cache directory."),
+    Field(description="Absolute path for the result file; a file already at that path is replaced. Defaults to a dated cache directory."),
 ]
 Options = Annotated[
     dict[str, Any] | None,
