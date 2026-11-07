@@ -245,7 +245,7 @@ def build(config: Config) -> FastMCP:
         async def generate_image(
             prompt: Annotated[
                 str,
-                Field(description="The image in full sentences: subject, setting, composition, lighting and style, with any text to render in quotes. Refer to references by position and role, with the labels of the model's prompt guide."),
+                Field(description="Description of the image to generate."),
             ],
             model: ImageModel = None,
             references: Annotated[
@@ -276,7 +276,7 @@ def build(config: Config) -> FastMCP:
         async def edit_image(
             prompt: Annotated[
                 str,
-                Field(description="What to change and what must stay unchanged, such as: replace only the sky with a sunset; keep the buildings, framing and lighting unchanged. Refer to images by position and role, with the labels of the model's prompt guide."),
+                Field(description="The change to make and what must stay unchanged."),
             ],
             images: Annotated[
                 list[str],
@@ -394,14 +394,14 @@ def build(config: Config) -> FastMCP:
         async def generate_speech(
             input: Annotated[
                 str,
-                Field(description="The exact words to speak. Spell out numbers, abbreviations and names where their reading matters, and add pause or sound tags only in the syntax of the model's prompt guide."),
+                Field(description="The exact words to speak."),
             ],
             model: TtsModel = None,
             voice: Annotated[str | None, Field(description="Preset or registered voice ID.")] = None,
             reference_audio: Annotated[
                 str | None, Field(description="Absolute path of a voice sample to imitate in this request.")
             ] = None,
-            instructions: Annotated[str | None, Field(description="Delivery style, such as tone or emotion.")] = None,
+            instructions: Annotated[str | None, Field(description="Performance or context direction; the API notes say how the model takes it.")] = None,
             response_format: Annotated[str | None, Field(description="Audio format, such as mp3 or wav.")] = None,
             speed: Annotated[float | None, Field(description="Speaking speed multiplier; 1.0 is normal.")] = None,
             timestamps: Annotated[
@@ -414,8 +414,8 @@ def build(config: Config) -> FastMCP:
 
             The voice is either voice, a preset or registered voice ID such as one from voice_design, or
             reference_audio, a sample the model imitates for this request only. input is spoken verbatim, so it holds
-            only the words to say; set the delivery with instructions or inline tags as the model's prompt guide describes.
-            Returns the model name and the audio path, plus the path of a timestamps JSON file when timestamps is true.
+            only the words to say. Returns the model name and the audio path, plus the path of a timestamps JSON file
+            when timestamps is true.
             """
             if not voice and not reference_audio:
                 raise ValueError("give voice or reference_audio")
@@ -477,7 +477,7 @@ def build(config: Config) -> FastMCP:
         async def generate_video(
             prompt: Annotated[
                 str,
-                Field(description="The video in playback order: subjects, actions, setting, camera, lighting, style and sound. Several models expect their own structure or reference labels; follow the model's prompt guide."),
+                Field(description="Description of the video to generate."),
             ],
             model: VideoModel = None,
             first_frame: Annotated[
