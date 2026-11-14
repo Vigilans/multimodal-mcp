@@ -122,9 +122,9 @@ Omni agents work in the background: `start_omni_agent` returns an `agent_id` at 
 | Endpoint | Default `base_url` | Image | ASR | TTS | Video |
 |---|---|---|---|---|---|
 | `openai` | `https://api.openai.com/v1` | `/images/generations`, `/images/edits` | `/audio/transcriptions` | `/audio/speech` | `/videos`, multipart, as served by vLLM-Omni |
+| `gemini` | `https://generativelanguage.googleapis.com/v1beta` | `/interactions` | `/interactions` | `/interactions`, `/voices` | `/interactions`, background |
 | `minimax` | `https://api.minimaxi.com` | `/v1/image_generation` (references are portrait subjects) | `/v1/speech_to_text` | `/v1/t2a_v2`, `/v1/voice_design` | `/v2/video_generation` |
 | `ark` | `https://ark.cn-beijing.volces.com/api/v3` for image and video, `https://openspeech.bytedance.com/api/v3` for speech | `/images/generations` | `/sauc/bigmodel_nostream` WebSocket; needs `ffmpeg` on `PATH` | `/tts/unidirectional` | `/contents/generations/tasks` |
-| `gemini` | `https://generativelanguage.googleapis.com/v1beta` | `/interactions` | `/interactions` | `/interactions`, `/voices` | `/interactions`, background |
 | `deepseek` | `https://api.deepseek.com` | | `/v1/tools/asr`; needs `ffmpeg` on `PATH` | `/v1/tools/tts` | |
 
 Omni models use the `openai` endpoint's chat completions.
