@@ -1,6 +1,6 @@
 [project]
 name = "multimodal-mcp"
-version = "0.2.0"
+version = "0.3.0"
 description = "MCP server for image, audio and video generation, transcription, voice design and media analysis."
 readme = "README.md"
 license = "MIT"
