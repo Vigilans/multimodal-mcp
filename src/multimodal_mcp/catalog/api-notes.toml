@@ -200,6 +200,26 @@ voice_design = [
   "Voices are kept for a year after last use, up to 200 per project.",  # https://ai.google.dev/gemini-api/docs/voice-design §Manage your voices
 ]
 
+[deepseek]
+asr = [
+  "Audio up to 120 seconds; the server converts it to 16 kHz mono WAV with ffmpeg.",  # https://api-docs.deepseek.com/zh-cn/guides/asr §请求; src/multimodal_mcp/endpoints/deepseek.py DeepSeek.transcribe
+  "The language is detected from the audio, among zh, yue, en, ja, ko, de, fr, es, pt, it, ru, ar, hi, id, vi, th, tr, ms, fil, pl and hu; language, prompt, hotwords and speakers are unsupported.",  # https://api-docs.deepseek.com/zh-cn/guides/asr §语种; src/multimodal_mcp/endpoints/deepseek.py DeepSeek.transcribe
+]
+generate_speech = [
+  "input up to 10,000 billed characters, a Chinese character counting as 2 and any other as 1, and 64 KiB; one request returns up to 30 minutes of audio.",  # https://api-docs.deepseek.com/zh-cn/guides/tts §整段合成, §计费
+  "The language is detected from the text, among zh, yue, en, ja, ko, ms, ar, id, th and vi.",  # https://api-docs.deepseek.com/zh-cn/guides/tts §语种
+  "voice: stella (female) or tide (male).",  # https://api-docs.deepseek.com/zh-cn/guides/tts §音色
+  "response_format: wav (default) or pcm, which is raw 24 kHz 16-bit mono.",  # https://api-docs.deepseek.com/zh-cn/guides/tts §整段合成
+  "Markdown formatting in input is removed before speaking; options {\"filter_markdown\": false} reads it as written.",  # https://api-docs.deepseek.com/zh-cn/guides/tts §整段合成 filter_markdown
+  "instructions, speed and reference_audio are unsupported.",  # https://api-docs.deepseek.com/zh-cn/guides/tts §整段合成; src/multimodal_mcp/endpoints/deepseek.py DeepSeek.synthesize
+]
+
+[deepseek.models.deepseek-asr]
+capabilities = ["text"]  # https://api-docs.deepseek.com/zh-cn/guides/asr §响应: text and duration_ms only; the request names no model, so deepseek-asr is the configured name
+
+[deepseek.models.deepseek-tts]
+capabilities = ["voice"]  # https://api-docs.deepseek.com/zh-cn/guides/tts §音色: preset voices only; the request names no model, so deepseek-tts is the configured name
+
 [openai]
 transcribe_audio_with_timestamps = [
   "speakers=true cannot be combined with granularity word; speaker labels come with segment timestamps.",  # src/multimodal_mcp/endpoints/openai.py OpenAI.transcribe: diarized_json has no word timestamps

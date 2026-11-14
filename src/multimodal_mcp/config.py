@@ -22,7 +22,7 @@ DEFAULT_PATH = Path.home() / ".agents" / "mcp" / "multimodal" / "config.toml"
 
 
 class Provider(BaseModel):
-    endpoint: Literal["openai", "minimax", "ark", "gemini"]
+    endpoint: Literal["openai", "minimax", "ark", "gemini", "deepseek"]
     # Omitted: the endpoint's official API root.
     base_url: str | None = None
     api_key: str | None = None

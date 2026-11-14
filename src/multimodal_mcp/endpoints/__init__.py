@@ -13,9 +13,9 @@ MIME_ALIASES = {"audio/x-wav": "audio/wav"}
 
 
 def connect(endpoint: str, base_url: str | None, api_key: str) -> Any:
-    from . import ark, gemini, minimax, openai
+    from . import ark, deepseek, gemini, minimax, openai
 
-    modules = {"openai": openai, "minimax": minimax, "ark": ark, "gemini": gemini}
+    modules = {"openai": openai, "minimax": minimax, "ark": ark, "gemini": gemini, "deepseek": deepseek}
     return modules[endpoint].Endpoint(base_url, api_key)
 
 
