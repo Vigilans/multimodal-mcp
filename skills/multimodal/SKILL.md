@@ -1,6 +1,6 @@
 ---
 name: multimodal
-description: Use when the user asks to generate or edit an image, transcribe audio or make subtitles, synthesize speech or design a voice, or generate a video, and the multimodal MCP server's tools are available.
+description: Use when the user asks to generate or edit an image, transcribe audio or make subtitles, recognize text in a document or image, synthesize speech or design a voice, or generate a video, and the multimodal MCP server's tools are available.
 ---
 
 # Multimodal
@@ -46,6 +46,7 @@ Check each result against the request:
 - **Images:** open them and compare the subject, style, composition, exact text, and everything that had to stay unchanged.
 - **Videos:** extract one frame each from the start, middle and end, such as `ffmpeg -ss 3 -i clip.mp4 -frames:v 1 middle.png`, and open them; use `ffprobe` for the duration and resolution.
 - **Transcripts:** read the returned JSON, and check names, terms and the requested fields.
+- **Recognized text:** compare the returned page count with the document's. Split each page in `incomplete_pages` into a file of its own, recognize it again, and use that text for the page.
 
 Fix by the kind of problem:
 

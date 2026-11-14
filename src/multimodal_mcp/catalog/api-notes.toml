@@ -213,12 +213,27 @@ generate_speech = [
   "Markdown formatting in input is removed before speaking; options {\"filter_markdown\": false} reads it as written.",  # https://api-docs.deepseek.com/zh-cn/guides/tts §整段合成 filter_markdown
   "instructions, speed and reference_audio are unsupported.",  # https://api-docs.deepseek.com/zh-cn/guides/tts §整段合成; src/multimodal_mcp/endpoints/deepseek.py DeepSeek.synthesize
 ]
+ocr = [
+  "file: PDF, DOC, DOCX, PPT, PPTX, or a PNG, JPEG, WebP, GIF, BMP or TIFF image, recognized by its content; up to 100 MiB and 1,000 pages.",  # https://api-docs.deepseek.com/zh-cn/guides/ocr §支持的文件格式, §限制
+  "The upload must finish within 120 seconds without a pause over 30 seconds, and the whole call within 180 seconds; up to 15 recognitions run at once per account.",  # https://api-docs.deepseek.com/zh-cn/guides/ocr §限制
+  "Billed per successfully recognized page; a recognition keeps running and is billed after the client disconnects.",  # https://api-docs.deepseek.com/zh-cn/guides/ocr §计费, §限制
+  "options are unsupported.",  # https://api-docs.deepseek.com/zh-cn/guides/ocr §请求: extra fields return 400; src/multimodal_mcp/endpoints/deepseek.py DeepSeek.recognize
+]
+recognize_text = [
+  "Pages are Markdown with tables as HTML; Word and PowerPoint files without images are extracted as text without recognition.",  # https://api-docs.deepseek.com/zh-cn/guides/ocr §purpose 行为; observed text_recognition response, 2026-11-14
+]
+recognize_text_with_layout = [
+  "DeepSeek publishes no label list; observed labels include sub_title, text and table, and a table block's text is HTML.",  # https://api-docs.deepseek.com/zh-cn/guides/ocr §rich_layout_recognition 输出; observed rich_layout_recognition response, 2026-11-14
+]
 
 [deepseek.models.deepseek-asr]
 capabilities = ["text"]  # https://api-docs.deepseek.com/zh-cn/guides/asr §响应: text and duration_ms only; the request names no model, so deepseek-asr is the configured name
 
 [deepseek.models.deepseek-tts]
 capabilities = ["voice"]  # https://api-docs.deepseek.com/zh-cn/guides/tts §音色: preset voices only; the request names no model, so deepseek-tts is the configured name
+
+[deepseek.models.deepseek-ocr]
+capabilities = ["text", "layout"]  # https://api-docs.deepseek.com/zh-cn/guides/ocr §purpose 行为: text_recognition and rich_layout_recognition; the request names no model, so deepseek-ocr is the configured name
 
 [openai]
 transcribe_audio_with_timestamps = [

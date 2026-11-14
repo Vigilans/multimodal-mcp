@@ -16,8 +16,8 @@ from .omni import OmniAgents
 CACHE_DIR = Path.home() / ".cache" / "multimodal-mcp"
 # Hosts show the first line alone when they defer loading the server's tools.
 INSTRUCTIONS = """\
-Generate and edit images, transcribe audio, synthesize speech, design voices, generate videos and analyze media with \
-the media models the user configured.
+Generate and edit images, transcribe audio, recognize text in documents and images, synthesize speech, design voices, \
+generate videos and analyze media with the media models the user configured.
 
 - Settle the model first, calling list_models when choosing among several. For each model you will call, call \
 get_model_guide once per context and read the sections its notes name for the task before writing its prompt.
@@ -53,6 +53,7 @@ AsrPrompt = Annotated[
     Field(description="Text that steers the recognizer, for models that take one; the API notes say how each model reads it."),
 ]
 Hotwords = Annotated[list[str] | None, Field(description="Names and terms the recognizer should favor.")]
+DocumentFile = Annotated[str, Field(description="Absolute path of the document or image.")]
 
 
 def _output(category: str, name: str, suffix: str, output_path: str | None, index: int = 0) -> Path:
@@ -132,6 +133,7 @@ def build(config: Config) -> FastMCP:
     tools = {
         "image": {"generate_image": {"generate"}, "edit_image": {"edit"}},
         "asr": {"transcribe_audio": {"text"}, "transcribe_audio_with_timestamps": {"segment", "word"}},
+        "ocr": {"recognize_text": {"text"}, "recognize_text_with_layout": {"layout"}},
         "tts": {"generate_speech": {"voice", "reference"}, "voice_design": {"design"}},
         "video": {"generate_video": None},
         "omni": {"start_omni_agent": None},
@@ -165,9 +167,10 @@ def build(config: Config) -> FastMCP:
         Each model has its name to pass as model (the provider's model ID, or <provider>/<model ID> when several
         providers serve the same model ID), its category, the user's description and its capabilities. Capabilities
         name the calls a model can serve. image: generate, edit, reference (generate_image with references), mask; asr:
-        text, segment and word (timestamp granularities), speaker, hotwords; tts: voice (preset or registered voice
-        IDs), reference (reference_audio), timestamps, design (voice_design); video: text, frames (first_frame or
-        last_frame), reference (reference media); omni: image, audio (the media the model reads).
+        text, segment and word (timestamp granularities), speaker, hotwords; ocr: text, layout (labeled blocks with
+        positions); tts: voice (preset or registered voice IDs), reference (reference_audio), timestamps, design
+        (voice_design); video: text, frames (first_frame or last_frame), reference (reference media); omni: image,
+        audio (the media the model reads).
         """
         return {
             "models": [
@@ -383,6 +386,76 @@ def build(config: Config) -> FastMCP:
                 "raw_path": str(raw_path),
                 "segments": len(result["segments"]),
                 "words": len(result["words"]),
+            }
+
+    if names := offering("ocr", "text"):
+        OcrModel = model_param("ocr", names)
+
+        @mcp.tool(annotations=PROVIDER_API_ANNOTATIONS)
+        async def recognize_text(
+            file: DocumentFile,
+            model: OcrModel = None,
+            options: Options = None,
+            output_path: OutputPath = None,
+        ) -> dict:
+            """Recognize the text of a document or image and save it as Markdown.
+
+            Use when only the text matters; use recognize_text_with_layout for each block's label and position. An
+            image counts as a one-page document; the API notes list the formats each model reads. Writes the pages to a
+            Markdown file, each page opened by <!-- page N --> with N from 1, and the provider's response beside it;
+            returns the model name, both paths, the page count and incomplete_pages, the pages whose text was cut
+            short. Read the Markdown file for the text.
+            """
+            endpoint, model_id, name = choose("ocr", model, {"text"})
+            raw, result = await endpoint.recognize(model_id, file, layout=False, options=options)
+            path = _output("ocr", name, "md", output_path)
+            raw_path = path.with_name(f"{path.stem}.raw.json")
+            path.write_text(
+                "\n\n".join(f"<!-- page {page['page']} -->\n\n{page['text']}" for page in result["pages"]) + "\n",
+                encoding="utf-8",
+            )
+            raw_path.write_text(raw, encoding="utf-8")
+            return {
+                "model": name,
+                "path": str(path),
+                "raw_path": str(raw_path),
+                "pages": result["page_count"],
+                "incomplete_pages": [page["page"] for page in result["pages"] if not page["complete"]],
+            }
+
+    if names := offering("ocr", "layout"):
+        LayoutModel = model_param("ocr", names)
+
+        @mcp.tool(annotations=PROVIDER_API_ANNOTATIONS)
+        async def recognize_text_with_layout(
+            file: DocumentFile,
+            model: LayoutModel = None,
+            options: Options = None,
+            output_path: OutputPath = None,
+        ) -> dict:
+            """Recognize the text of a document or image as labeled blocks with their positions on the page.
+
+            Use when the position or kind of text matters, such as for cropping a table or figure or reading a form;
+            use recognize_text when only the text matters. Writes {page_count, pages: [{page, complete, blocks:
+            [{label, box, text}]}]} to a JSON file, and the provider's response beside it. page counts from 1;
+            complete is false when the page's text was cut short; label is the provider's block type, with the known
+            ones in the API notes; box is [x1, y1, x2, y2] from the page's top-left corner, scaled to 0-1000 of its
+            width and height, so a pixel coordinate is value * width (or height) / 1000 at the size you render the
+            page. Returns the model name, both paths, the page and block counts and incomplete_pages.
+            """
+            endpoint, model_id, name = choose("ocr", model, {"layout"})
+            raw, result = await endpoint.recognize(model_id, file, layout=True, options=options)
+            path = _output("ocr", name, "json", output_path)
+            raw_path = path.with_name(f"{path.stem}.raw.json")
+            path.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
+            raw_path.write_text(raw, encoding="utf-8")
+            return {
+                "model": name,
+                "path": str(path),
+                "raw_path": str(raw_path),
+                "pages": result["page_count"],
+                "blocks": sum(len(page["blocks"]) for page in result["pages"]),
+                "incomplete_pages": [page["page"] for page in result["pages"] if not page["complete"]],
             }
 
     if names := offering("tts", "voice", "reference"):

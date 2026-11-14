@@ -1,13 +1,17 @@
-"""DeepSeek speech tools: /v1/tools/asr and /v1/tools/tts. Neither request names a model."""
+"""DeepSeek tools: /v1/tools/asr, /v1/tools/tts and /v1/tools/ocr. No request names a model."""
 
 import io
+import json
+import re
 import wave
 
 import httpx
 
-from . import check, given, merge, pcm, unsupported
+from . import check, given, merge, pcm, read_file, unsupported
 
 BASE_URL = "https://api.deepseek.com"
+# A rich_layout_recognition block: <｜ref｜>LABEL<｜/ref｜><｜box｜>[[x1, y1, x2, y2]]<｜/box｜> TEXT, up to the next block.
+BLOCK = re.compile(r"<｜ref｜>(.*?)<｜/ref｜><｜box｜>(.*?)<｜/box｜>(.*?)(?=<｜ref｜>|\Z)", re.DOTALL)
 
 
 class Endpoint:
@@ -46,3 +50,27 @@ class Endpoint:
         # The audio streams back as it is synthesized; a body cut short raises httpx.RemoteProtocolError.
         response = check(await self.http.post("/v1/tools/tts", json=merge(body, options)))
         return response.content, fmt, None
+
+    async def recognize(self, model, file, *, layout, options):
+        unsupported("DeepSeek OCR", options=options)
+        name, data, mime = read_file(file)
+        purpose = "rich_layout_recognition" if layout else "text_recognition"
+        response = check(
+            await self.http.post("/v1/tools/ocr", data={"purpose": purpose}, files={"file": (name, data, mime)})
+        )
+        body = response.json()
+        # Once recognition starts the status is 200, so a failure arrives as an error body.
+        if "error" in body:
+            raise RuntimeError(f"DeepSeek OCR: {body['error']}")
+        pages = []
+        for page in body["pages"]:
+            entry = {"page": page["index"] + 1, "complete": page["finish_reason"] != "length"}
+            if layout:
+                entry["blocks"] = [
+                    {"label": label, "box": json.loads(box)[0], "text": text.strip()}
+                    for label, box, text in BLOCK.findall(page["text"])
+                ]
+            else:
+                entry["text"] = page["text"]
+            pages.append(entry)
+        return response.text.strip(), {"page_count": body["page_count"], "pages": pages}

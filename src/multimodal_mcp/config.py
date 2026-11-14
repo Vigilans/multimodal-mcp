@@ -8,11 +8,12 @@ from pydantic import BaseModel, model_validator
 
 from .catalog.api_notes import model_entry
 
-Category = Literal["image", "asr", "tts", "video", "omni"]
+Category = Literal["image", "asr", "ocr", "tts", "video", "omni"]
 
 CAPABILITIES: dict[str, set[str]] = {
     "image": {"generate", "edit", "reference", "mask"},
     "asr": {"text", "segment", "word", "speaker", "hotwords"},
+    "ocr": {"text", "layout"},
     "tts": {"voice", "reference", "timestamps", "design"},
     "video": {"text", "frames", "reference"},
     "omni": {"image", "audio"},  # The media an omni model reads.
