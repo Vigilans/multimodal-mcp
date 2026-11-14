@@ -44,7 +44,8 @@ from pydantic_ai_harness.subagents import (
 )
 
 from ..config import Model, Provider
-from .media import AudioFiles, ffmpeg_path
+from ..endpoints import ffmpeg_path
+from .media import AudioFiles
 from .workspace import GitBashWorkspace
 
 INSTRUCTIONS = (Path(__file__).parent / "instructions.md").read_text(encoding="utf-8")

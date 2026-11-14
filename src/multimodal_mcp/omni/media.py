@@ -1,12 +1,6 @@
-"""What the omni agent needs to read media: audio from read_file, and ffmpeg and ffprobe on PATH."""
+"""What the omni agent needs to read media: audio from read_file."""
 
-import asyncio
-import json
-import os
-import shutil
-import sys
 from dataclasses import replace
-from pathlib import Path
 from typing import Any
 
 from pydantic_ai import RunContext
@@ -55,33 +49,3 @@ class AudioFiles(AbstractCapability[Any]):
         if media_type is None:
             return result
         return [header, BinaryContent(data=data, media_type=media_type)]
-
-
-# Runs in a child process: static-ffmpeg prints its download progress, which would corrupt stdio MCP's stdout. Its
-# archives hold a folder named for the platform, which it extracts beside download_dir, so download_dir takes that name.
-FETCH = """\
-import json, os, sys
-from static_ffmpeg import run
-stdout, sys.stdout = sys.stdout, sys.stderr
-directory = os.path.join(sys.argv[1], run.get_platform_key())
-stdout.write(json.dumps(run.get_or_fetch_platform_executables_else_raise(download_dir=directory)))
-"""
-
-
-async def ffmpeg_path(cache: Path) -> str | None:
-    """A PATH with ffmpeg and ffprobe, downloading them into cache when PATH lacks either; None when PATH has both."""
-    if shutil.which("ffmpeg") and shutil.which("ffprobe"):
-        return None
-    process = await asyncio.create_subprocess_exec(
-        sys.executable, "-I", "-c", FETCH, str(cache), stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-    )
-    try:
-        stdout, stderr = await process.communicate()
-    except asyncio.CancelledError:
-        process.kill()
-        await process.wait()
-        raise
-    if process.returncode:
-        raise RuntimeError(f"downloading ffmpeg failed: {stderr.decode(errors='replace')[-2000:]}")
-    directories = dict.fromkeys(str(Path(path).parent) for path in json.loads(stdout))
-    return os.pathsep.join([*directories, os.environ.get("PATH", "")])

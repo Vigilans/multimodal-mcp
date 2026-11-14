@@ -128,10 +128,10 @@ Omni agents work in the background: `start_omni_agent` returns an `agent_id` at 
 | `openai` | `https://api.openai.com/v1` | `/images/generations`, `/images/edits` | `/audio/transcriptions` | | `/audio/speech` | `/videos`, multipart, as served by vLLM-Omni |
 | `gemini` | `https://generativelanguage.googleapis.com/v1beta` | `/interactions` | `/interactions` | | `/interactions`, `/voices` | `/interactions`, background |
 | `minimax` | `https://api.minimaxi.com` | `/v1/image_generation` (references are portrait subjects) | `/v1/speech_to_text` | | `/v1/t2a_v2`, `/v1/voice_design` | `/v2/video_generation` |
-| `ark` | `https://ark.cn-beijing.volces.com/api/v3` for image and video, `https://openspeech.bytedance.com/api/v3` for speech | `/images/generations` | `/sauc/bigmodel_nostream` WebSocket; needs `ffmpeg` on `PATH` | | `/tts/unidirectional` | `/contents/generations/tasks` |
-| `deepseek` | `https://api.deepseek.com` | | `/v1/tools/asr`; needs `ffmpeg` on `PATH` | `/v1/tools/ocr` | `/v1/tools/tts` | |
+| `ark` | `https://ark.cn-beijing.volces.com/api/v3` for image and video, `https://openspeech.bytedance.com/api/v3` for speech | `/images/generations` | `/sauc/bigmodel_nostream` WebSocket | | `/tts/unidirectional` | `/contents/generations/tasks` |
+| `deepseek` | `https://api.deepseek.com` | | `/v1/tools/asr` | `/v1/tools/ocr` | `/v1/tools/tts` | |
 
-Omni models use the `openai` endpoint's chat completions.
+Omni models use the `openai` endpoint's chat completions. `ark` and `deepseek` ASR decode audio with `ffmpeg` from `PATH`, downloaded once with static-ffmpeg when `PATH` lacks it, the same copy omni agents use.
 
 An `ark` `base_url` replaces both default roots (media and speech), so a provider with separate image/video and speech roots needs one provider entry per root. Include any plan prefix, such as `.../api/plan/v3` for Agent Plan images and video and `.../api/v3/plan` for Agent Plan speech. Ark speech models select their service with `X-Api-Resource-Id`: `doubao-seed-tts-2.0` and `doubao-seed-asr-2.0` map to `seed-tts-2.0` and `volc.seedasr.sauc.duration`; any other model name is sent as the resource ID.
 

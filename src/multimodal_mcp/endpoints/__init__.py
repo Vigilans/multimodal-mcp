@@ -2,7 +2,11 @@
 
 import asyncio
 import base64
+import json
 import mimetypes
+import os
+import shutil
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -47,11 +51,46 @@ def read_file(path: str) -> tuple[str, bytes, str]:
     return file.name, file.read_bytes(), MIME_ALIASES.get(mime, mime)
 
 
+# Runs in a child process: static-ffmpeg prints its download progress, which would corrupt stdio MCP's stdout. Its
+# archives hold a folder named for the platform, which it extracts beside download_dir, so download_dir takes that name.
+FETCH = """\
+import json, os, sys
+from static_ffmpeg import run
+stdout, sys.stdout = sys.stdout, sys.stderr
+directory = os.path.join(sys.argv[1], run.get_platform_key())
+stdout.write(json.dumps(run.get_or_fetch_platform_executables_else_raise(download_dir=directory)))
+"""
+
+
+async def ffmpeg_path(cache: Path) -> str | None:
+    """A PATH with ffmpeg and ffprobe, downloading them into cache when PATH lacks either; None when PATH has both."""
+    if shutil.which("ffmpeg") and shutil.which("ffprobe"):
+        return None
+    process = await asyncio.create_subprocess_exec(
+        sys.executable, "-I", "-c", FETCH, str(cache), stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+    )
+    try:
+        stdout, stderr = await process.communicate()
+    except asyncio.CancelledError:
+        process.kill()
+        await process.wait()
+        raise
+    if process.returncode:
+        raise RuntimeError(f"downloading ffmpeg failed: {stderr.decode(errors='replace')[-2000:]}")
+    directories = dict.fromkeys(str(Path(path).parent) for path in json.loads(stdout))
+    return os.pathsep.join([*directories, os.environ.get("PATH", "")])
+
+
 async def pcm(path: str) -> bytes:
-    """Decode an audio file to 16 kHz mono 16-bit little-endian PCM with ffmpeg from PATH."""
+    """Decode an audio file to 16 kHz mono 16-bit little-endian PCM with ffmpeg from PATH, or from the server's cache
+    when PATH lacks it."""
+    # Read at call time: the server module imports this one.
+    from ..server import CACHE_DIR
+
     read_file(path)
+    executable = shutil.which("ffmpeg") or shutil.which("ffmpeg", path=await ffmpeg_path(CACHE_DIR / "ffmpeg"))
     ffmpeg = await asyncio.create_subprocess_exec(
-        "ffmpeg", "-v", "error", "-i", path, "-f", "s16le", "-ac", "1", "-ar", "16000", "-",
+        executable, "-v", "error", "-i", path, "-f", "s16le", "-ac", "1", "-ar", "16000", "-",
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
