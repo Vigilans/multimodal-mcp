@@ -4,7 +4,6 @@ base_url is the API root including any plan prefix. Images and video append /ima
 /contents/generations/tasks; speech appends /tts/unidirectional or /sauc/bigmodel_nostream.
 """
 
-import asyncio
 import base64
 import gzip
 import json
@@ -21,7 +20,7 @@ from . import (
     given,
     media_content,
     merge,
-    read_file,
+    pcm,
     unsupported,
 )
 
@@ -92,22 +91,14 @@ class Endpoint:
 
     async def transcribe(self, model, file, *, timestamps, speakers, language, prompt, hotwords, options):
         unsupported("Ark ASR", speakers=speakers, language=language, prompt=prompt, hotwords=hotwords)
-        read_file(file)
-        ffmpeg = await asyncio.create_subprocess_exec(
-            "ffmpeg", "-v", "error", "-i", file, "-f", "s16le", "-ac", "1", "-ar", "16000", "-",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        pcm, error = await ffmpeg.communicate()
-        if ffmpeg.returncode:
-            raise RuntimeError(f"ffmpeg: {error.decode(errors='replace')}")
+        audio = await pcm(file)
         request = {
             "user": {"uid": "multimodal-mcp"},
             "audio": {"format": "pcm", "codec": "raw", "rate": 16000, "bits": 16, "channel": 1},
             "request": {"model_name": "bigmodel", "enable_itn": True, "enable_punc": True, "show_utterances": True},
         }
         url = self.speech_url.replace("https://", "wss://", 1).replace("http://", "ws://", 1)
-        chunks = [pcm[start : start + PCM_CHUNK] for start in range(0, len(pcm), PCM_CHUNK)] or [b""]
+        chunks = [audio[start : start + PCM_CHUNK] for start in range(0, len(audio), PCM_CHUNK)] or [b""]
         result: dict = {}
         async with websockets.connect(
             url + "/sauc/bigmodel_nostream", additional_headers=self._speech_headers(model), max_size=None

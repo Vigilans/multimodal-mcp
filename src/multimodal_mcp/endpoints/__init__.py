@@ -1,5 +1,6 @@
 """Endpoint adapters. Each module exposes an `Endpoint` class with the same per-category methods."""
 
+import asyncio
 import base64
 import mimetypes
 from pathlib import Path
@@ -44,6 +45,20 @@ def read_file(path: str) -> tuple[str, bytes, str]:
         raise ValueError(f"input files must be absolute paths: {path}")
     mime = mimetypes.guess_type(file.name)[0] or "application/octet-stream"
     return file.name, file.read_bytes(), MIME_ALIASES.get(mime, mime)
+
+
+async def pcm(path: str) -> bytes:
+    """Decode an audio file to 16 kHz mono 16-bit little-endian PCM with ffmpeg from PATH."""
+    read_file(path)
+    ffmpeg = await asyncio.create_subprocess_exec(
+        "ffmpeg", "-v", "error", "-i", path, "-f", "s16le", "-ac", "1", "-ar", "16000", "-",
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    data, error = await ffmpeg.communicate()
+    if ffmpeg.returncode:
+        raise RuntimeError(f"ffmpeg: {error.decode(errors='replace')}")
+    return data
 
 
 def data_uri(path: str) -> tuple[str, str]:
