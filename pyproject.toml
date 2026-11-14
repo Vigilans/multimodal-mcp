@@ -1,7 +1,8 @@
 [project]
 name = "multimodal-mcp"
-version = "0.3.0"
-description = "MCP server for image, audio and video generation, transcription, voice design and media analysis."
+version = "0.3.0.post1"
+description = "MCP server for image generation and editing, speech recognition, text recognition, speech synthesis, voice design, video generation and multimodal media analysis."
+keywords = ["mcp", "mcp-server", "multimodal", "image-generation", "image-editing", "speech-recognition", "asr", "text-recognition", "ocr", "speech-synthesis", "tts", "voice-design", "video-generation"]
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]

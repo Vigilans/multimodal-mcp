@@ -993,7 +993,7 @@ wheels = [
 
 [[package]]
 name = "multimodal-mcp"
-version = "0.3.0"
+version = "0.3.0.post1"
 source = { editable = "." }
 dependencies = [
     { name = "fastmcp" },
