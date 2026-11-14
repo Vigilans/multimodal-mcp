@@ -1,6 +1,6 @@
 # multimodal-mcp
 
-One MCP server for image generation and editing, speech recognition, speech synthesis and voice design, video generation, and agents that analyze images, audio and video. Declare the models and their capabilities in a config file; the server registers a tool only when a configured model supports it, and picks the model for each call from what the call needs.
+One MCP server for image generation and editing, speech recognition, speech synthesis and voice design, video generation, and multimodal agents that analyze images, audio and video. Declare the models and their capabilities in a config file; the server registers a tool only when a configured model supports it, and picks the model for each call from what the call needs.
 
 ## Installation
 
