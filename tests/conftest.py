@@ -128,8 +128,8 @@ class Omni:
         """A path as the agent's file tools and shell spell it."""
         return bash_path(str(path)) if os.name == "nt" else str(path)
 
-    async def call(self, name: str, args: dict | None = None) -> dict:
-        result = await self.client.call_tool(name, args or {})
+    async def call(self, name: str, args: dict | None = None, meta: dict | None = None) -> dict:
+        result = await self.client.call_tool(name, args or {}, meta=meta)
         return result.structured_content if result.structured_content is not None else json.loads(result.content[0].text)
 
     async def start(self, task: str) -> str:
@@ -186,6 +186,7 @@ async def omni(tmp_path, monkeypatch):
     work = tmp_path / "work"
     work.mkdir()
     monkeypatch.chdir(work)
+    monkeypatch.delenv("CLAUDE_PROJECT_DIR", raising=False)
     config = Config.model_validate(
         {
             "providers": {"fixture": {"endpoint": "openai", "api_key": "fixture", "base_url": "http://127.0.0.1:9"}},

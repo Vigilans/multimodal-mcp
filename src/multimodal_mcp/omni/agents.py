@@ -108,9 +108,10 @@ class Run(AbstractCapability[Any]):
 
 @dataclass
 class Session:
-    """An agent's model and runs; the lock orders continue and stop."""
+    """An agent's model, working directory and runs; the lock orders continue and stop."""
 
     model: str
+    cwd: str
     runs: list[Run] = field(default_factory=list)
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
@@ -161,8 +162,8 @@ class OmniAgents:
 
     def _agent(self, name: str, path: str | None) -> Agent:
         model, provider = self.models[name]
+        # Each run brings its session's workspace, so agents on one model share this Agent.
         capabilities: list[Any] = [
-            LocalWorkspace(os.getcwd()) if os.name == "posix" else GitBashWorkspace(os.getcwd()),
             FileSystem(root_dir="/", read_only=True, content_hashes=False),
             Shell(env={"PATH": path} if path else None, tools=["run_command"], default_timeout=120),
         ]
@@ -188,12 +189,13 @@ class OmniAgents:
         path = await self._ffmpeg()
         if session.model not in self.agents:
             self.agents[session.model] = self._agent(session.model, path)
+        workspace = LocalWorkspace(session.cwd) if os.name == "posix" else GitBashWorkspace(session.cwd)
         result = await self.agents[session.model].run(
             record.prompt,
             message_history=repair_messages(self.owner.history(record.id)) or None,
             conversation_id=record.id,
             run_id=record.run_id,
-            capabilities=[run],
+            capabilities=[workspace, run],
             usage_limits=LIMITS,
         )
         return result.output
@@ -239,9 +241,9 @@ class OmniAgents:
             "model": self.sessions[agent_id].model,
         }
 
-    async def start(self, task: str, model: str) -> dict:
+    async def start(self, task: str, model: str, cwd: str) -> dict:
         agent_id = uuid4().hex
-        session = self.sessions[agent_id] = Session(model)
+        session = self.sessions[agent_id] = Session(model, cwd)
         try:
             async with session.lock:
                 await self._launch(agent_id, session, task, resume=False)

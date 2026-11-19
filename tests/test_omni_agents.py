@@ -1,13 +1,16 @@
 """The omni tools over MCP, against a scripted model: run states, message delivery, stop, wait, paging and media."""
 
 import asyncio
+import nturl2path
 import os
 import time
 from pathlib import Path
 
 import pytest
+from conftest import Omni
 
 import multimodal_mcp.omni.agents as agents_module
+import multimodal_mcp.server as server_module
 
 pytestmark = pytest.mark.anyio
 
@@ -192,3 +195,85 @@ async def test_an_unknown_agent_is_an_error(omni):
     result = await omni.client.call_tool("get_omni_agent", {"agent_id": "nope"}, raise_on_error=False)
     assert result.is_error
     assert "unknown agent 'nope'; agents live until the server restarts" in result.content[0].text
+
+
+def sandbox(path: Path) -> dict:
+    """The request metadata Codex sends with a tool call when its sandbox's working directory is path."""
+    return {"codex/sandbox-state-meta": {"sandboxCwd": path.as_uri()}}
+
+
+async def pwd(omni, args: dict, meta: dict | None = None) -> str:
+    started = await omni.call("start_omni_agent", {"task": "shell pwd"} | args, meta)
+    return (await omni.finish(started["agent_id"]))["tool_calls"][0]["result"].splitlines()[-1]
+
+
+def spelled(path: Path) -> str:
+    return Omni.path(Path(os.path.realpath(path)))
+
+
+async def test_the_server_takes_codex_sandbox_state_and_start_takes_cwd(omni):
+    assert omni.client.server_capabilities.experimental == {"codex/sandbox-state-meta": {}}
+    tool = next(tool for tool in await omni.client.list_tools() if tool.name == "start_omni_agent")
+    assert set(tool.input_schema["properties"]) == {"task", "model", "cwd"}
+
+
+async def test_the_working_directory_falls_back_from_cwd_to_sandbox_project_and_server(omni, tmp_path, monkeypatch):
+    explicit, codex, project = tmp_path / "explicit", tmp_path / "codex project", tmp_path / "project"
+    for directory in (explicit, codex, project):
+        directory.mkdir()
+    assert await pwd(omni, {}) == spelled(Path.cwd())
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(project))
+    assert await pwd(omni, {}) == spelled(project)
+    assert "%20" in sandbox(codex)["codex/sandbox-state-meta"]["sandboxCwd"]
+    assert await pwd(omni, {}, sandbox(codex)) == spelled(codex)
+    assert await pwd(omni, {}, sandbox(tmp_path / "missing")) == spelled(project)
+    assert await pwd(omni, {"cwd": str(explicit)}, sandbox(codex)) == spelled(explicit)
+
+
+async def test_a_relative_or_missing_cwd_is_an_error(omni, tmp_path):
+    for cwd, error in [("work", "cwd must be absolute: work"), (str(tmp_path / "missing"), "cwd is not a directory")]:
+        result = await omni.client.call_tool("start_omni_agent", {"task": "echo", "cwd": cwd}, raise_on_error=False)
+        assert result.is_error and error in result.content[0].text
+
+
+async def test_agents_on_one_model_keep_their_own_working_directories_across_runs(omni, tmp_path):
+    first, second = tmp_path / "first", tmp_path / "second"
+    for directory in (first, second):
+        directory.mkdir()
+        (directory / f"{directory.name}.txt").write_text(f"in {directory.name}\n", encoding="utf-8")
+    agents = {
+        directory: (await omni.call("start_omni_agent", {"task": "shell sleep 0.3; pwd", "cwd": str(directory)}))[
+            "agent_id"
+        ]
+        for directory in (first, second)
+    }
+    for directory, agent in agents.items():
+        done = await omni.finish(agent)
+        assert done["tool_calls"][0]["result"].splitlines()[-1] == spelled(directory)
+        for message, result in [
+            ("find *.txt", f"{directory.name}.txt"),
+            ("grep in [a-z]+", f"{directory.name}.txt:1:in {directory.name}"),
+            (f"read {directory.name}.txt", f"in {directory.name}"),
+            ("shell pwd", spelled(directory)),
+        ]:
+            sent = await omni.call("continue_omni_agent", {"agent_id": agent, "message": message})
+            assert sent["delivery"] == "new_run"
+            assert result in (await omni.finish(agent))["tool_calls"][-1]["result"]
+
+
+@pytest.mark.parametrize(
+    ("uri", "path"),
+    [
+        ("file:///home/me/my%20project", "/home/me/my project"),
+        ("file://localhost/home/me", "/home/me"),
+        ("https://example.com/home/me", None),
+        ("file://example.com/home/me", None),
+    ],
+)
+def test_file_path_reads_local_file_uris(uri, path):
+    assert server_module._file_path(uri) == path
+
+
+def test_file_path_reads_windows_file_uris(monkeypatch):
+    monkeypatch.setattr(server_module, "url2pathname", nturl2path.url2pathname)
+    assert server_module._file_path("file:///C:/Users/me/my%20project") == r"C:\Users\me\my project"

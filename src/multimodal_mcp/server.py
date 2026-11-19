@@ -1,10 +1,13 @@
 import json
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any, Literal
+from urllib.parse import urlparse
+from urllib.request import url2pathname
 
-from fastmcp import FastMCP
+from fastmcp import Context, FastMCP
 from pydantic import Field
 
 from .catalog import api_notes as notes
@@ -71,6 +74,33 @@ def _output(category: str, name: str, suffix: str, output_path: str | None, inde
     return path
 
 
+def _file_path(uri: str) -> str | None:
+    """The local path a file URI names; None for another scheme or a remote host."""
+    parts = urlparse(uri)
+    if parts.scheme != "file" or parts.netloc not in ("", "localhost"):
+        return None
+    return url2pathname(parts.path)
+
+
+def _working_dir(cwd: str | None, meta: dict[str, Any] | None) -> str:
+    """An omni agent's working directory: cwd, else the Codex sandbox's, else the Claude Code project's, else the
+    server's."""
+    if cwd is not None:
+        if not Path(cwd).is_absolute():
+            raise ValueError(f"cwd must be absolute: {cwd}")
+        if not os.path.isdir(cwd):
+            raise ValueError(f"cwd is not a directory: {cwd}")
+        return cwd
+    # Codex sends its sandbox state with each tool call to servers that declare codex/sandbox-state-meta.
+    sandbox = (meta or {}).get("codex/sandbox-state-meta")
+    uri = (sandbox.get("sandboxCwd") or sandbox.get("sandbox_cwd")) if isinstance(sandbox, dict) else None
+    project = os.environ.get("CLAUDE_PROJECT_DIR")
+    for path in (_file_path(uri) if isinstance(uri, str) else None, project):
+        if path and Path(path).is_absolute() and os.path.isdir(path):
+            return path
+    return os.getcwd()
+
+
 def build(config: Config) -> FastMCP:
     agents: OmniAgents | None = None
 
@@ -82,7 +112,12 @@ def build(config: Config) -> FastMCP:
         async with agents.opened():
             yield {}
 
-    mcp = FastMCP("multimodal", instructions=INSTRUCTIONS, lifespan=lifespan)
+    mcp = FastMCP(
+        "multimodal",
+        instructions=INSTRUCTIONS,
+        lifespan=lifespan,
+        experimental_capabilities={"codex/sandbox-state-meta": {}},
+    )
     endpoints = {
         name: connect(provider.endpoint, provider.base_url, provider.key()) for name, provider in config.providers.items()
     }
@@ -646,18 +681,24 @@ def build(config: Config) -> FastMCP:
                 str,
                 Field(description="The question to answer and the absolute path of every source it concerns, with any constraints such as timing precision or a tool-call budget."),
             ],
+            ctx: Context,
             model: OmniModel = None,
+            cwd: Annotated[
+                str | None,
+                Field(description="Absolute path of the working directory for the agent's files and shell commands. Omit to use the client session's directory, else the server's working directory."),
+            ] = None,
         ) -> dict:
             """Start an omni agent that analyzes images, audio and video, and return at once with its agent_id.
 
             The agent works in the background on the omni model: it reads files and runs shell commands, such as
-            ffmpeg and ffprobe, in the server's working directory, and can call list_models, get_model_guide and the
-            transcription tools. Wait for it with wait_omni_agents, then read its answer and tool calls with
-            get_omni_agent. Agents live in server memory, so a server restart loses them, running or not. Returns the
-            agent_id, run_id, status and model.
+            ffmpeg and ffprobe, in its working directory, cwd, for all its runs, and can call list_models,
+            get_model_guide and the transcription tools. Wait for it with wait_omni_agents, then read its answer and
+            tool calls with get_omni_agent. Agents live in server memory, so a server restart loses them, running or
+            not. Returns the agent_id, run_id, status and model.
             """
             _, _, name = choose("omni", model, set())
-            return await agents.start(task, name)
+            directory = _working_dir(cwd, ctx.request_context.meta if ctx.request_context else None)
+            return await agents.start(task, name, directory)
 
         @mcp.tool(annotations=PROVIDER_API_ANNOTATIONS)
         async def continue_omni_agent(
