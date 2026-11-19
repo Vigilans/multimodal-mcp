@@ -43,7 +43,7 @@ Done when each deliverable has a result file or a reported error, and each submi
 
 Check each result against the request:
 
-- **Images:** open them and compare the subject, style, composition, exact text, and everything that had to stay unchanged.
+- **Images:** open them and compare the subject, style, composition, exact text, and everything that had to stay unchanged; if a high-resolution file is large enough to hit request-size limits, inspect a downscaled preview copy first and crop full-resolution regions only where fine text or detail needs checking.
 - **Videos:** extract one frame each from the start, middle and end, such as `ffmpeg -ss 3 -i clip.mp4 -frames:v 1 middle.png`, and open them; use `ffprobe` for the duration and resolution.
 - **Transcripts:** read the returned JSON, and check names, terms and the requested fields.
 - **Recognized text:** compare the returned page count with the document's. Split each page in `incomplete_pages` into a file of its own, recognize it again, and use that text for the page.
