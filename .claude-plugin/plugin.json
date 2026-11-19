@@ -1,6 +1,6 @@
 {
   "name": "multimodal",
-  "version": "0.3.0.post1",
+  "version": "0.4.0",
   "description": "The multimodal MCP server and its companion skill for image and video generation, speech synthesis and recognition, text recognition and omni media analysis.",
   "author": {
     "name": "Vigilans",
