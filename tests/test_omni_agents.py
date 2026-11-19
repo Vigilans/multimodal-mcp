@@ -5,6 +5,7 @@ import nturl2path
 import os
 import time
 from pathlib import Path
+from urllib.parse import unquote
 
 import pytest
 from conftest import Omni
@@ -261,19 +262,14 @@ async def test_agents_on_one_model_keep_their_own_working_directories_across_run
             assert result in (await omni.finish(agent))["tool_calls"][-1]["result"]
 
 
-@pytest.mark.parametrize(
-    ("uri", "path"),
-    [
-        ("file:///home/me/my%20project", "/home/me/my project"),
-        ("file://localhost/home/me", "/home/me"),
-        ("https://example.com/home/me", None),
-        ("file://example.com/home/me", None),
-    ],
-)
-def test_file_path_reads_local_file_uris(uri, path):
-    assert server_module._file_path(uri) == path
-
-
-def test_file_path_reads_windows_file_uris(monkeypatch):
+def test_file_path_reads_local_file_uris(tmp_path, monkeypatch):
+    project = tmp_path / "my project"
+    uri = project.as_uri()
+    assert server_module._file_path(uri) == str(project)
+    assert server_module._file_path(uri.replace("file:///", "file://localhost/", 1)) == str(project)
+    assert server_module._file_path("https://example.com/home/me") is None
+    assert server_module._file_path("file://example.com/home/me") is None
+    monkeypatch.setattr(server_module, "url2pathname", unquote)
+    assert server_module._file_path("file:///home/me/my%20project") == "/home/me/my project"
     monkeypatch.setattr(server_module, "url2pathname", nturl2path.url2pathname)
     assert server_module._file_path("file:///C:/Users/me/my%20project") == r"C:\Users\me\my project"
