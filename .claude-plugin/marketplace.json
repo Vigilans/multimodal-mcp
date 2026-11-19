@@ -1,0 +1,14 @@
+{
+  "name": "multimodal-mcp",
+  "description": "The multimodal MCP server and its companion skill as one plugin.",
+  "owner": {
+    "name": "Vigilans",
+    "email": "vigilans@foxmail.com"
+  },
+  "plugins": [
+    {
+      "name": "multimodal",
+      "source": "./"
+    }
+  ]
+}

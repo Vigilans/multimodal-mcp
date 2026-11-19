@@ -1,0 +1,19 @@
+{
+  "name": "multimodal",
+  "version": "0.3.0.post1",
+  "description": "The multimodal MCP server and its companion skill for image and video generation, speech synthesis and recognition, text recognition and omni media analysis.",
+  "author": {
+    "name": "Vigilans",
+    "email": "vigilans@foxmail.com"
+  },
+  "homepage": "https://github.com/Vigilans/multimodal-mcp",
+  "repository": "https://github.com/Vigilans/multimodal-mcp",
+  "license": "MIT",
+  "keywords": ["mcp", "multimodal", "image-generation", "video-generation", "tts", "asr", "ocr"],
+  "mcpServers": {
+    "multimodal": {
+      "command": "uvx",
+      "args": ["--from", "${CLAUDE_PLUGIN_ROOT}", "multimodal-mcp"]
+    }
+  }
+}

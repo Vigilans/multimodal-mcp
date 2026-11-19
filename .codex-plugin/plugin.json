@@ -1,0 +1,9 @@
+{
+  "name": "multimodal",
+  "mcpServers": {
+    "multimodal": {
+      "command": "uvx",
+      "env_vars": ["MULTIMODAL_MCP_CONFIG"]
+    }
+  }
+}

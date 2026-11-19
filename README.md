@@ -41,6 +41,18 @@ Install the companion [multimodal](skills/multimodal/SKILL.md) skill (`-g` insta
 npx skills add Vigilans/multimodal-mcp -s multimodal
 ```
 
+Claude Code and Codex can install the server and the skill together as the `multimodal` plugin from this repository:
+
+```sh
+claude plugin marketplace add Vigilans/multimodal-mcp
+claude plugin install multimodal@multimodal-mcp
+
+codex plugin marketplace add Vigilans/multimodal-mcp
+codex plugin add multimodal@multimodal-mcp
+```
+
+Both plugins run the server with `uvx` from the installed plugin's own copy, and find the config as described under [Configuration](#configuration); Codex passes `MULTIMODAL_MCP_CONFIG` through to the server.
+
 Without the skill installed, the server's built-in MCP instructions still direct clients to call `list_models` and `get_model_guide` before writing prompts.
 
 On Windows, omni agents run their commands in Git Bash, so they require Git for Windows with `git` on `PATH`.
