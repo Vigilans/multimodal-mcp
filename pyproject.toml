@@ -1,6 +1,6 @@
 [project]
 name = "multimodal-mcp"
-version = "0.4.0"
+version = "0.5.0"
 description = "MCP server for image generation and editing, speech recognition, text recognition, speech synthesis, voice design, video generation and multimodal media analysis."
 keywords = ["mcp", "mcp-server", "multimodal", "image-generation", "image-editing", "speech-recognition", "asr", "text-recognition", "ocr", "speech-synthesis", "tts", "voice-design", "video-generation"]
 readme = "README.md"
