@@ -41,7 +41,7 @@ Install the companion [multimodal](skills/multimodal/SKILL.md) skill (`-g` insta
 npx skills add Vigilans/multimodal-mcp -s multimodal
 ```
 
-Claude Code and Codex can install the server and the skill together as the `multimodal` plugin from this repository:
+Claude Code, Codex, OpenCode and Pi can install the server and the skill together as the `multimodal` plugin from this repository:
 
 ```sh
 claude plugin marketplace add Vigilans/multimodal-mcp
@@ -49,9 +49,14 @@ claude plugin install multimodal@multimodal-mcp
 
 codex plugin marketplace add Vigilans/multimodal-mcp
 codex plugin add multimodal@multimodal-mcp
+
+opencode plugin add multimodal@git+https://github.com/Vigilans/multimodal-mcp.git   # OpenCode 2.x
+opencode plugin -g multimodal@git+https://github.com/Vigilans/multimodal-mcp.git    # OpenCode 1.x
+
+pi install git:github.com/Vigilans/multimodal-mcp
 ```
 
-Both plugins run the server with `uvx` from the installed plugin's own copy, and find the config as described under [Configuration](#configuration); Codex passes `MULTIMODAL_MCP_CONFIG` through to the server.
+Each plugin runs the server with `uvx` from the installed plugin's own copy, and finds the config as described under [Configuration](#configuration); Codex passes `MULTIMODAL_MCP_CONFIG` through to the server, and OpenCode and Pi pass their whole environment.
 
 Without the skill installed, the server's built-in MCP instructions still direct clients to call `list_models` and `get_model_guide` before writing prompts.
 
