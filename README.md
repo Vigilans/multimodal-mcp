@@ -67,40 +67,54 @@ On Windows, omni agents run their commands in Git Bash, so they require Git for 
 The config file is read from `--config <path>`, then `MULTIMODAL_MCP_CONFIG`, then `~/.agents/mcp/multimodal/config.toml`.
 
 ```toml
-[providers.gateway]
+[providers.openai]
 endpoint = "openai"           # default for models without endpoint
-base_url = "https://gateway.example.com"
-env_key = "GATEWAY_API_KEY"   # or: api_key = "..."
+env_key = "OPENAI_API_KEY"    # or: api_key = "..."; base_url omitted: the official API
+
+[providers.gateway]           # a gateway serving several endpoints
+env_key = "GATEWAY_API_KEY"
+
+[providers.gateway.endpoints] # each endpoint's base_url; models name their endpoint
+openai = "https://gateway.example.com/openai/v1"
+ark = "https://gateway.example.com/ark/api/v3"
+minimax = "https://gateway.example.com/minimax"
 
 [providers.gemini]
-endpoint = "gemini"           # base_url omitted: the official API
+endpoint = "openai"           # Gemini's OpenAI-compatible API
+base_url = "https://generativelanguage.googleapis.com/v1beta/openai"
 env_key = "GEMINI_API_KEY"
 
 [[models.image]]              # models.<image|video|tts|asr|ocr|omni>
-provider = "gateway"
+provider = "openai"
 model = "gpt-image-2.5-flare"
 description = "Fast image generation and editing"
 capabilities = ["generate", "edit", "reference", "mask"]
 
-[[models.image]]
+[[models.image]]              # capabilities from the API notes
 provider = "gateway"
-endpoint = "ark"              # gateway's Ark route, at /api/v3
+endpoint = "ark"
 model = "doubao-seedream-5.0-pro"
 description = "High-resolution generation from text and reference images"
 
-[[models.video]]
+[[models.video]]              # an open-weight model the gateway serves with vLLM-Omni
 provider = "gateway"
-endpoint = "minimax"          # gateway's MiniMax route
-model = "MiniMax-H3"
+endpoint = "openai"
+model = "MiniMaxAI/MiniMax-H3"
 description = "Video with synchronized audio; text, first/last frame, or reference driven"
 
-[[models.tts]]                # capabilities from the API notes
-provider = "gemini"
-model = "gemini-3.8-flash-tts"
+[[models.tts]]
+provider = "gateway"
+endpoint = "ark"
+model = "doubao-seed-tts-2.0"
+
+[[models.asr]]
+provider = "gateway"
+endpoint = "minimax"
+model = "asr-1.0"
 
 [[models.omni]]               # omni models use an openai endpoint
-provider = "gateway"
-model = "gemini-3.5-flash"
+provider = "gemini"
+model = "gemini-3.8-flash"
 capabilities = ["image", "audio"]
 
 [defaults]                    # optional, per category
@@ -196,7 +210,11 @@ Omni agents run in the background on [Pydantic AI](https://ai.pydantic.dev/) (`p
 
 ## Endpoints
 
-Each model uses its own `endpoint`, or falls back to its provider's, so one gateway provider can serve models across multiple endpoint types. `base_url` is the API root to which the endpoint appends its paths. When omitted, the endpoint's official API is used. If `base_url` has no path, it gets the path from the endpoint's default `base_url`, so `https://gateway.example.com` becomes `.../v1` for `openai`, `.../v1beta` for `gemini` and `.../api/v3` for `ark`.
+An endpoint is an API protocol the server speaks, such as OpenAI's or Ark's. Each endpoint sends requests to a `base_url`, the API root that the paths in the table below are appended to; without one, it uses the endpoint's official API.
+
+A provider's `endpoint` applies to all its models, and a model can name a different one with its own `endpoint`, so one gateway can serve several endpoints under one `base_url`. A gateway whose endpoints sit under different API roots sets `endpoints` instead of `endpoint` and `base_url`: each key is an endpoint, each value is that endpoint's `base_url`, and every model on the gateway names its `endpoint`.
+
+A `base_url` without a path gets the path of the endpoint's default `base_url`, so `https://gateway.example.com` becomes `.../v1` for `openai`, `.../v1beta` for `gemini` and `.../api/v3` for `ark`. A `base_url` with a path is used as given.
 
 | Endpoint | Default `base_url` | Image | Video | TTS | ASR | OCR |
 |---|---|---|---|---|---|---|

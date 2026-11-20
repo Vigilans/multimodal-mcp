@@ -25,9 +25,11 @@ DEFAULT_PATH = Path.home() / ".agents" / "mcp" / "multimodal" / "config.toml"
 
 class Provider(BaseModel):
     # The endpoint of models that name none.
-    endpoint: Endpoint
+    endpoint: Endpoint | None = None
     # Omitted: the endpoint's official API root. A URL without a path takes the endpoint's official root path.
     base_url: str | None = None
+    # In place of endpoint and base_url: the base_url of each endpoint the provider serves. Its models name their endpoint.
+    endpoints: dict[Endpoint, str] | None = None
     api_key: str | None = None
     env_key: str | None = None
 
@@ -37,8 +39,20 @@ class Provider(BaseModel):
             raise ValueError("set exactly one of api_key or env_key")
         return self
 
+    @model_validator(mode="after")
+    def _one_route(self) -> "Provider":
+        if (self.endpoint is None) == (self.endpoints is None):
+            raise ValueError("set exactly one of endpoint or endpoints")
+        if self.endpoints is not None and self.base_url is not None:
+            raise ValueError("endpoints gives each endpoint's base_url; drop base_url")
+        return self
+
     def key(self) -> str:
         return self.api_key or os.environ[self.env_key]
+
+    def url(self, endpoint: str) -> str | None:
+        """The base_url the provider serves endpoint at."""
+        return self.base_url if self.endpoints is None else self.endpoints[endpoint]
 
 
 class Model(BaseModel):
@@ -74,8 +88,14 @@ class Config(BaseModel):
             for index, model in enumerate(models):
                 if model.provider not in self.providers:
                     raise ValueError(f"models.{category}[{index}].provider: unknown provider {model.provider!r}")
+                provider = self.providers[model.provider]
                 if model.endpoint is None:
-                    model.endpoint = self.providers[model.provider].endpoint
+                    model.endpoint = provider.endpoint
+                if provider.endpoints is not None and model.endpoint not in provider.endpoints:
+                    raise ValueError(
+                        f"models.{category}[{index}].endpoint: name one of provider {model.provider!r}'s endpoints: "
+                        f"{', '.join(provider.endpoints)}"
+                    )
                 if category == "omni" and model.endpoint != "openai":
                     raise ValueError(f"models.omni[{index}].endpoint: omni models need an openai endpoint")
                 if model.capabilities is None:

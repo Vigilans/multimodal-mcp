@@ -175,7 +175,7 @@ class OmniAgents:
             "supports_image_input": "image" in model.capabilities,
             "supports_audio_file_input": "audio" in model.capabilities,
         }
-        provider = OpenAIProvider(base_url=api_root("openai", provider.base_url), api_key=provider.key())
+        provider = OpenAIProvider(base_url=api_root("openai", provider.url("openai")), api_key=provider.key())
         return Agent(
             OpenAIChatModel(model.model, provider=provider, profile=profile),
             name="omni",

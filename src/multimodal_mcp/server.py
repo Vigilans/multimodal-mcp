@@ -121,7 +121,7 @@ def build(config: Config) -> FastMCP:
     # One connection per provider and endpoint its models use.
     routes = {(model.provider, model.endpoint) for models in config.models.values() for model in models}
     endpoints = {
-        (name, endpoint): connect(endpoint, config.providers[name].base_url, config.providers[name].key())
+        (name, endpoint): connect(endpoint, config.providers[name].url(endpoint), config.providers[name].key())
         for name, endpoint in routes
     }
 
