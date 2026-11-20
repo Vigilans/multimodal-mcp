@@ -118,8 +118,11 @@ def build(config: Config) -> FastMCP:
         lifespan=lifespan,
         experimental_capabilities={"codex/sandbox-state-meta": {}},
     )
+    # One connection per provider and endpoint its models use.
+    routes = {(model.provider, model.endpoint) for models in config.models.values() for model in models}
     endpoints = {
-        name: connect(provider.endpoint, provider.base_url, provider.key()) for name, provider in config.providers.items()
+        (name, endpoint): connect(endpoint, config.providers[name].base_url, config.providers[name].key())
+        for name, endpoint in routes
     }
 
     named = config.named()
@@ -152,7 +155,7 @@ def build(config: Config) -> FastMCP:
             missing = sorted(needed - set(models[category][name].capabilities))
             raise ValueError(f"{name} lacks {missing}; capable models: {', '.join(candidates) or 'none'}")
         model = models[category][name]
-        return endpoints[model.provider], model.model, name
+        return endpoints[model.provider, model.endpoint], model.model, name
 
     def model_param(category: str, names: list[str]) -> Any:
         default = config.defaults.get(category)
@@ -176,7 +179,7 @@ def build(config: Config) -> FastMCP:
 
     def model_notes(category: str, model: Any) -> dict[str, list[str]]:
         """The model's API notes under their keys: its category, then each tool it serves."""
-        endpoint = config.providers[model.provider].endpoint
+        endpoint = model.endpoint
         served = [tool for tool, bases in tools[category].items() if bases is None or bases & set(model.capabilities)]
         keys = {category: notes.rules(endpoint, model.model, category, "")}
         keys |= {tool: notes.rules(endpoint, model.model, "", tool) for tool in served}
@@ -660,7 +663,9 @@ def build(config: Config) -> FastMCP:
             when failed, the job carries the provider's error.
             """
             video_model = models["video"][model]
-            job, status, data = await endpoints[video_model.provider].get_video(video_model.model, video_id)
+            job, status, data = await endpoints[video_model.provider, video_model.endpoint].get_video(
+                video_model.model, video_id
+            )
             result = {"status": status, "job": job}
             if data is not None:
                 path = _output("video", model, "mp4", output_path)

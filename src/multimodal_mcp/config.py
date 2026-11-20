@@ -9,6 +9,7 @@ from pydantic import BaseModel, model_validator
 from .catalog.api_notes import model_entry
 
 Category = Literal["image", "asr", "ocr", "tts", "video", "omni"]
+Endpoint = Literal["openai", "minimax", "ark", "gemini", "deepseek"]
 
 CAPABILITIES: dict[str, set[str]] = {
     "image": {"generate", "edit", "reference", "mask"},
@@ -23,8 +24,9 @@ DEFAULT_PATH = Path.home() / ".agents" / "mcp" / "multimodal" / "config.toml"
 
 
 class Provider(BaseModel):
-    endpoint: Literal["openai", "minimax", "ark", "gemini", "deepseek"]
-    # Omitted: the endpoint's official API root.
+    # The endpoint of models that name none.
+    endpoint: Endpoint
+    # Omitted: the endpoint's official API root. A URL without a path takes the endpoint's official root path.
     base_url: str | None = None
     api_key: str | None = None
     env_key: str | None = None
@@ -41,6 +43,8 @@ class Provider(BaseModel):
 
 class Model(BaseModel):
     provider: str
+    # Omitted: the provider's endpoint.
+    endpoint: Endpoint | None = None
     model: str
     description: str = ""
     # Omitted: the model's capabilities in the API notes for its endpoint.
@@ -70,14 +74,15 @@ class Config(BaseModel):
             for index, model in enumerate(models):
                 if model.provider not in self.providers:
                     raise ValueError(f"models.{category}[{index}].provider: unknown provider {model.provider!r}")
-                if category == "omni" and self.providers[model.provider].endpoint != "openai":
-                    raise ValueError(f"models.omni[{index}].provider: omni models need an openai endpoint")
+                if model.endpoint is None:
+                    model.endpoint = self.providers[model.provider].endpoint
+                if category == "omni" and model.endpoint != "openai":
+                    raise ValueError(f"models.omni[{index}].endpoint: omni models need an openai endpoint")
                 if model.capabilities is None:
-                    endpoint = self.providers[model.provider].endpoint
-                    model.capabilities = model_entry(endpoint, model.model).get("capabilities")
+                    model.capabilities = model_entry(model.endpoint, model.model).get("capabilities")
                     if model.capabilities is None:
                         raise ValueError(
-                            f"models.{category}[{index}]: the API notes give no {endpoint} capabilities for "
+                            f"models.{category}[{index}]: the API notes give no {model.endpoint} capabilities for "
                             f"{model.model!r}; set capabilities"
                         )
                 unknown = set(model.capabilities) - CAPABILITIES[category]

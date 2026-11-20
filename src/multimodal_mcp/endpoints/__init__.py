@@ -9,18 +9,28 @@ import shutil
 import sys
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 
 # Canonical names for MIME types that mimetypes reports under legacy aliases.
 MIME_ALIASES = {"audio/x-wav": "audio/wav"}
+# The path of each endpoint's official API root, which a base URL without a path takes.
+ROOT_PATHS = {"openai": "/v1", "gemini": "/v1beta", "ark": "/api/v3", "minimax": "", "deepseek": ""}
+
+
+def api_root(endpoint: str, base_url: str | None) -> str | None:
+    """The endpoint's API root at base_url: a URL without a path gains the endpoint's official root path."""
+    if base_url and urlsplit(base_url).path in ("", "/"):
+        return base_url.rstrip("/") + ROOT_PATHS[endpoint]
+    return base_url
 
 
 def connect(endpoint: str, base_url: str | None, api_key: str) -> Any:
     from . import ark, deepseek, gemini, minimax, openai
 
     modules = {"openai": openai, "minimax": minimax, "ark": ark, "gemini": gemini, "deepseek": deepseek}
-    return modules[endpoint].Endpoint(base_url, api_key)
+    return modules[endpoint].Endpoint(api_root(endpoint, base_url), api_key)
 
 
 def given(**kwargs: Any) -> dict[str, Any]:

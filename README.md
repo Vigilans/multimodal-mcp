@@ -63,8 +63,8 @@ The config file is read from `--config <path>`, then `MULTIMODAL_MCP_CONFIG`, th
 
 ```toml
 [providers.gateway]
-endpoint = "openai"
-base_url = "https://gateway.example.com/v1"
+endpoint = "openai"           # default for models without endpoint
+base_url = "https://gateway.example.com"
 env_key = "GATEWAY_API_KEY"   # or: api_key = "..."
 
 [providers.gemini]
@@ -77,11 +77,17 @@ model = "gpt-image-2.5-flare"
 description = "Fast image generation and editing"
 capabilities = ["generate", "edit", "reference", "mask"]
 
+[[models.image]]
+provider = "gateway"
+endpoint = "ark"              # gateway's Ark route, at /api/v3
+model = "doubao-seedream-5.0-pro"
+description = "High-resolution generation from text and reference images"
+
 [[models.video]]
 provider = "gateway"
+endpoint = "minimax"          # gateway's MiniMax route
 model = "MiniMax-H3"
 description = "Video with synchronized audio; text, first/last frame, or reference driven"
-capabilities = ["text", "frames"]
 
 [[models.tts]]                # capabilities from the API notes
 provider = "gemini"
@@ -185,7 +191,7 @@ Omni agents run in the background on [Pydantic AI](https://ai.pydantic.dev/) (`p
 
 ## Endpoints
 
-`base_url` is the API root to which the endpoint appends its paths. When omitted, the endpoint's official API is used.
+Each model uses its own `endpoint`, or falls back to its provider's, so one gateway provider can serve models across multiple endpoint types. `base_url` is the API root to which the endpoint appends its paths. When omitted, the endpoint's official API is used. If `base_url` has no path, it gets the path from the endpoint's default `base_url`, so `https://gateway.example.com` becomes `.../v1` for `openai`, `.../v1beta` for `gemini` and `.../api/v3` for `ark`.
 
 | Endpoint | Default `base_url` | Image | Video | TTS | ASR | OCR |
 |---|---|---|---|---|---|---|

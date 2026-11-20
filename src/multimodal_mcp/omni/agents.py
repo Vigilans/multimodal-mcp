@@ -44,7 +44,7 @@ from pydantic_ai_harness.subagents import (
 )
 
 from ..config import Model, Provider
-from ..endpoints import ffmpeg_path
+from ..endpoints import api_root, ffmpeg_path
 from .media import AudioFiles
 from .workspace import GitBashWorkspace
 
@@ -175,7 +175,7 @@ class OmniAgents:
             "supports_image_input": "image" in model.capabilities,
             "supports_audio_file_input": "audio" in model.capabilities,
         }
-        provider = OpenAIProvider(base_url=provider.base_url, api_key=provider.key())
+        provider = OpenAIProvider(base_url=api_root("openai", provider.base_url), api_key=provider.key())
         return Agent(
             OpenAIChatModel(model.model, provider=provider, profile=profile),
             name="omni",
